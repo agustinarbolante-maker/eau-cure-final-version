@@ -107,53 +107,55 @@
         </div>
       </section>
 
-      <section class="calendar-section">
-        <h2>📅 Calendar</h2>
-        <div class="calendar-controls">
-          <button type="button" class="btn btn-nav" id="prevMonth">← Prev</button>
-          <span id="calendarMonth" class="calendar-month">June 2026</span>
-          <button type="button" class="btn btn-nav" id="nextMonth">Next →</button>
-        </div>
-        <div class="calendar-container" id="calendar"></div>
-        <div class="selected-date-display">
-          <strong>Selected Date:</strong> <span id="selectedDateFromCalendar">Today</span>
-        </div>
-      </section>
+      <div class="deliveries-layout-container">
+        <section class="calendar-section">
+          <h2>📅 Calendar</h2>
+          <div class="calendar-controls">
+            <button type="button" class="btn btn-nav" id="prevMonth">← Prev</button>
+            <span id="calendarMonth" class="calendar-month">June 2026</span>
+            <button type="button" class="btn btn-nav" id="nextMonth">Next →</button>
+          </div>
+          <div class="calendar-container" id="calendar"></div>
+          <div class="selected-date-display">
+            <strong>Selected Date:</strong> <span id="selectedDateFromCalendar">Today</span>
+          </div>
+        </section>
 
-      <section class="form-section">
-        <h2>📝 New Delivery Entry</h2>
-        <div class="date-picker-section">
-          <span class="form-selected-date">Adding for: <strong id="formDateDisplay">Today</strong></span>
-          <input type="time" id="deliveryTime" value="09:00" required style="display: none;">
-        </div>
-
-        <form id="deliveryForm">
-          <div class="form-group">
-            <label for="company">Company Delivered:</label>
-            <select id="company" name="company" required>
-              <option value="">-- Select a Company --</option>
-            </select>
+        <section class="form-section">
+          <h2>📝 New Delivery Entry</h2>
+          <div class="date-picker-section">
+            <span class="form-selected-date">Adding for: <strong id="formDateDisplay">Today</strong></span>
+            <input type="time" id="deliveryTime" value="09:00" required style="display: none;">
           </div>
 
-          <div class="form-group">
-            <label for="bottlesDelivered">Number of Bottles Delivered:</label>
-            <input type="number" id="bottlesDelivered" name="bottlesDelivered" min="0" required>
-          </div>
+          <form id="deliveryForm">
+            <div class="form-group">
+              <label for="company">Company Delivered:</label>
+              <select id="company" name="company" required>
+                <option value="">-- Select a Company --</option>
+              </select>
+            </div>
 
-          <div class="form-group">
-            <label for="bottlesReturned">Number of Bottles Returned:</label>
-            <input type="number" id="bottlesReturned" name="bottlesReturned" min="0" required>
-          </div>
+            <div class="form-group">
+              <label for="bottlesDelivered">Number of Bottles Delivered:</label>
+              <input type="number" id="bottlesDelivered" name="bottlesDelivered" min="0" required>
+            </div>
 
-          <div class="form-group">
-            <label for="drNumber">DR Number:</label>
-            <input type="text" id="drNumber" name="drNumber" required>
-          </div>
+            <div class="form-group">
+              <label for="bottlesReturned">Number of Bottles Returned:</label>
+              <input type="number" id="bottlesReturned" name="bottlesReturned" min="0" required>
+            </div>
 
-          <button type="submit" class="btn btn-submit">Add Delivery</button>
-        </form>
-        <div id="formMessage" class="form-message"></div>
-      </section>
+            <div class="form-group">
+              <label for="drNumber">DR Number:</label>
+              <input type="text" id="drNumber" name="drNumber" required>
+            </div>
+
+            <button type="submit" class="btn btn-submit">Add Delivery</button>
+          </form>
+          <div id="formMessage" class="form-message"></div>
+        </section>
+      </div>
 
       <section class="settings-page" id="settingsPage" style="display: none;">
         <h2>⚙️ Settings</h2>
@@ -345,15 +347,28 @@
   </div>
 
   <div id="backupModal" class="modal hidden">
-    <div class="modal-content">
+    <div class="modal-content modal-wide">
       <div class="modal-header">
         <h2>Backup Management</h2>
         <button type="button" class="modal-close" id="closeBackupModal">&times;</button>
       </div>
       <div class="backup-content">
-        <h3>Available Backups</h3>
-        <div id="backupList" class="backup-list">
-          <p class="loading">Loading backups...</p>
+        <div style="display: flex; gap: 30px; margin-bottom: 20px;">
+          <div style="flex: 1;">
+            <h3>Available Backups</h3>
+            <div id="backupList" class="backup-list">
+              <p class="loading">Loading backups...</p>
+            </div>
+          </div>
+          <div style="flex: 1; border-left: 1px solid #e0e0e0; padding-left: 20px;">
+            <h3>Upload Backup File</h3>
+            <div style="margin-bottom: 15px;">
+              <p style="font-size: 13px; color: #666; margin-bottom: 10px;">Restore a previously downloaded backup file:</p>
+              <input type="file" id="backupFileInput" accept=".db" style="margin-bottom: 10px; display: block; width: 100%;">
+              <button type="button" class="btn btn-submit" onclick="uploadBackupFile()" style="width: 100%;">Upload & Restore</button>
+            </div>
+            <div id="uploadMessage" class="form-message" style="margin-top: 10px;"></div>
+          </div>
         </div>
       </div>
       <div class="modal-buttons">

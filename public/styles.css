@@ -978,6 +978,22 @@ body {
   cursor: pointer;
 }
 
+.deliveries-layout-container {
+  display: flex;
+  gap: 20px;
+  margin-bottom: 20px;
+}
+
+.deliveries-layout-container .calendar-section {
+  flex: 0 0 auto;
+  width: 300px;
+}
+
+.deliveries-layout-container .form-section {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
 .calendar-section {
   background: white;
   padding: 8px;

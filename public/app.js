@@ -614,6 +614,48 @@ async function deleteBackup(filename) {
   });
 }
 
+async function uploadBackupFile() {
+  const fileInput = document.getElementById('backupFileInput');
+  const uploadMessage = document.getElementById('uploadMessage');
+  const file = fileInput.files[0];
+
+  if (!file) {
+    uploadMessage.innerHTML = '<span style="color: #dc3545;">Please select a backup file (.db)</span>';
+    return;
+  }
+
+  if (!file.name.endsWith('.db')) {
+    uploadMessage.innerHTML = '<span style="color: #dc3545;">Invalid file type. Please select a .db file</span>';
+    return;
+  }
+
+  try {
+    uploadMessage.innerHTML = '<span style="color: #ffc107;">Uploading...</span>';
+
+    const formData = new FormData();
+    formData.append('file', file);
+
+    const response = await fetch('/api/backups/upload', {
+      method: 'POST',
+      body: formData
+    });
+
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(error.error || 'Failed to upload backup');
+    }
+
+    uploadMessage.innerHTML = '<span style="color: #28a745;">✓ Backup uploaded and restored successfully!</span>';
+    fileInput.value = '';
+
+    setTimeout(() => {
+      loadBackupList();
+    }, 1500);
+  } catch (err) {
+    uploadMessage.innerHTML = `<span style="color: #dc3545;">Error: ${err.message}</span>`;
+  }
+}
+
 function populateFilterCompanyDropdown() {
   const options = companies.map(company =>
     `<option value="${company}">${company}</option>`

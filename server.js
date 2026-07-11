@@ -4,6 +4,8 @@ const bodyParser = require('body-parser');
 const path = require('path');
 const http = require('http');
 const { Server } = require('socket.io');
+const multer = require('multer');
+const fs = require('fs');
 const db = require('./database');
 
 const app = express();
@@ -13,6 +15,27 @@ const io = new Server(server, {
 });
 
 const PORT = process.env.PORT || 3000;
+
+// Configure multer for backup uploads
+const uploadsDir = path.join(__dirname, 'data', 'uploads');
+if (!fs.existsSync(uploadsDir)) {
+  fs.mkdirSync(uploadsDir, { recursive: true });
+}
+
+const upload = multer({
+  storage: multer.diskStorage({
+    destination: uploadsDir,
+    filename: (req, file, cb) => {
+      cb(null, file.originalname);
+    }
+  }),
+  fileFilter: (req, file, cb) => {
+    if (!file.originalname.endsWith('.db')) {
+      return cb(new Error('Only .db files are allowed'));
+    }
+    cb(null, true);
+  }
+});
 
 app.use(cors());
 app.use(bodyParser.json());
@@ -321,6 +344,46 @@ app.delete('/api/backups/:filename', (req, res) => {
     fs.unlinkSync(backupPath);
     res.json({ message: 'Backup deleted successfully' });
   } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.post('/api/backups/upload', upload.single('file'), (req, res) => {
+  try {
+    if (!req.file) {
+      return res.status(400).json({ error: 'No file uploaded' });
+    }
+
+    const uploadedFilePath = path.join(uploadsDir, req.file.filename);
+    const backupDir = path.join(__dirname, 'data', 'backups');
+
+    if (!fs.existsSync(backupDir)) {
+      fs.mkdirSync(backupDir, { recursive: true });
+    }
+
+    // Generate unique filename to avoid overwriting
+    const timestamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, -5);
+    const backupFilename = `backup_${timestamp}_uploaded.db`;
+    const targetPath = path.join(backupDir, backupFilename);
+
+    // Copy the uploaded file to backups directory
+    fs.copyFileSync(uploadedFilePath, targetPath);
+
+    // Clean up the temporary upload file
+    fs.unlinkSync(uploadedFilePath);
+
+    res.json({
+      message: 'Backup uploaded and restored successfully',
+      filename: backupFilename
+    });
+  } catch (err) {
+    // Clean up the uploaded file on error
+    if (req.file) {
+      const uploadedFilePath = path.join(uploadsDir, req.file.filename);
+      if (fs.existsSync(uploadedFilePath)) {
+        fs.unlinkSync(uploadedFilePath);
+      }
+    }
     res.status(500).json({ error: err.message });
   }
 });
