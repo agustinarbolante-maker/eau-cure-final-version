@@ -1323,13 +1323,15 @@ function switchPage(pageName) {
     modal.classList.add('hidden');
   });
 
-  // Show/hide sections based on page
-  const mainContent = document.querySelector('.main-content');
+  // Get all sections
   const dashboardSection = document.getElementById('dashboardSection');
   const filterSection = document.querySelector('.filter-section');
   const calendarSection = document.querySelector('.calendar-section');
   const formSection = document.querySelector('.form-section');
   const tableSection = document.querySelector('.table-section');
+  const companiesSection = document.getElementById('companiesSection');
+  const billingSection = document.getElementById('billingSection');
+  const settingsPage = document.getElementById('settingsPage');
 
   // Reset all sections first
   if (dashboardSection) dashboardSection.style.display = 'none';
@@ -1337,134 +1339,100 @@ function switchPage(pageName) {
   if (calendarSection) calendarSection.style.display = 'none';
   if (formSection) formSection.style.display = 'none';
   if (tableSection) tableSection.style.display = 'none';
+  if (companiesSection) companiesSection.style.display = 'none';
+  if (billingSection) billingSection.style.display = 'none';
+  if (settingsPage) settingsPage.style.display = 'none';
 
-  // Update main-content layout
-  if (mainContent) {
-    mainContent.classList.remove('deliveries-layout');
-  }
-
-  // DASHBOARD: Only stats
+  // DASHBOARD
   if (pageName === 'dashboard') {
     if (dashboardSection) dashboardSection.style.display = 'block';
   }
 
-  // DELIVERIES: Calendar + Form (NO FILTERS, NO TABLE)
+  // DELIVERIES: Calendar + Form
   if (pageName === 'deliveries') {
-    if (mainContent) mainContent.classList.add('deliveries-layout');
-    if (filterSection) filterSection.style.display = 'none';
     if (calendarSection) calendarSection.style.display = 'block';
-    if (formSection) {
-      formSection.style.display = 'block';
-      // Restore delivery form if it was overwritten
-      restoreDeliveryForm();
-    }
+    if (formSection) formSection.style.display = 'block';
   }
 
-  // RECORDS: Just the table with export/print buttons
+  // RECORDS: Filters + Table
   if (pageName === 'records') {
     if (filterSection) filterSection.style.display = 'block';
     if (tableSection) tableSection.style.display = 'block';
   }
 
-  // COMPANIES: Company list
+  // COMPANIES
   if (pageName === 'companies') {
-    if (formSection) formSection.style.display = 'block';
-    showCompanyList();
+    if (companiesSection) companiesSection.style.display = 'block';
+    loadCompaniesList();
   }
 
-  // BILLING: Show billing history directly (no modal)
+  // BILLING
   if (pageName === 'billing') {
-    if (formSection) formSection.style.display = 'block';
-    showBillingPage();
+    if (billingSection) billingSection.style.display = 'block';
+    loadBillingPage();
   }
 
-  // SETTINGS: Show settings page
+  // SETTINGS
   if (pageName === 'settings') {
-    const settingsPage = document.getElementById('settingsPage');
-    if (settingsPage) {
-      settingsPage.style.display = 'block';
-      loadSettings();
-    }
-  } else {
-    const settingsPage = document.getElementById('settingsPage');
-    if (settingsPage) settingsPage.style.display = 'none';
+    if (settingsPage) settingsPage.style.display = 'block';
+    loadSettings();
   }
 
   console.log('Switched to page:', pageName);
 }
 
-async function showBillingPage() {
+async function loadBillingPage() {
   try {
     const response = await fetch('/api/billing-statements');
-    if (!response.ok) throw new Error('Failed to load billing history');
+    if (!response.ok) throw new Error('Failed to load billing statements');
     const statements = await response.json();
 
-    let html = '<h2>📄 Billing Statements</h2>';
-    html += '<div style="margin-bottom: 20px;">';
-    html += '<button type="button" class="btn btn-billing" onclick="openBillingModal()">➕ Create New Billing Statement</button>';
-    html += '</div>';
+    const tbody = document.getElementById('billingTableBody');
+    if (!tbody) return;
 
     if (statements.length === 0) {
-      html += '<p style="text-align: center; color: #999;">No billing statements yet. Create one to get started!</p>';
+      tbody.innerHTML = '<tr class="empty-state"><td colspan="5">No billing statements yet</td></tr>';
     } else {
-      html += '<table style="width: 100%; border-collapse: collapse;">';
-      html += '<thead><tr style="background: #f0f0f0;"><th style="padding: 12px; text-align: left; border: 1px solid #ddd;">Company</th><th style="padding: 12px; text-align: left; border: 1px solid #ddd;">Period</th><th style="padding: 12px; text-align: left; border: 1px solid #ddd;">Amount</th><th style="padding: 12px; text-align: left; border: 1px solid #ddd;">Status</th><th style="padding: 12px; text-align: left; border: 1px solid #ddd;">Action</th></tr></thead>';
-      html += '<tbody>';
-
-      statements.forEach(stmt => {
+      tbody.innerHTML = statements.map(stmt => {
         const startDate = new Date(stmt.start_date).toLocaleDateString();
         const endDate = new Date(stmt.end_date).toLocaleDateString();
         const statusClass = stmt.is_paid ? 'status-paid' : 'status-unpaid';
         const statusText = stmt.is_paid ? 'PAID' : 'UNPAID';
-
-        html += '<tr style="border: 1px solid #ddd;">';
-        html += `<td style="padding: 12px; border: 1px solid #ddd;">${stmt.company_name}</td>`;
-        html += `<td style="padding: 12px; border: 1px solid #ddd;">${startDate} - ${endDate}</td>`;
-        html += `<td style="padding: 12px; border: 1px solid #ddd;">₱${parseFloat(stmt.total_amount).toFixed(2)}</td>`;
-        html += `<td style="padding: 12px; border: 1px solid #ddd;"><span class="status-badge ${statusClass}" onclick="togglePaidStatus(${stmt.id}, ${stmt.is_paid})" style="cursor: pointer;">${statusText}</span></td>`;
-        html += `<td style="padding: 12px; border: 1px solid #ddd;"><button class="btn btn-sm" onclick="deleteBillingStatement(${stmt.id})">Delete</button></td>`;
-        html += '</tr>';
-      });
-
-      html += '</tbody></table>';
-    }
-
-    const formSection = document.querySelector('.form-section');
-    if (formSection) {
-      formSection.innerHTML = html;
+        return `<tr>
+          <td>${stmt.company_name}</td>
+          <td>${startDate} - ${endDate}</td>
+          <td>₱${parseFloat(stmt.total_amount).toFixed(2)}</td>
+          <td><span class="status-badge ${statusClass}" onclick="togglePaidStatus(${stmt.id}, ${stmt.is_paid})" style="cursor: pointer;">${statusText}</span></td>
+          <td><button class="btn btn-sm" onclick="deleteBillingStatement(${stmt.id})">Delete</button></td>
+        </tr>`;
+      }).join('');
     }
   } catch (err) {
-    console.error('Error loading billing page:', err);
+    console.error('Error loading billing statements:', err);
+    showMessage('Error loading billing statements', 'error');
   }
 }
 
-async function showCompanyList() {
+async function loadCompaniesList() {
   try {
     const response = await fetch('/api/companies/all');
     if (!response.ok) throw new Error('Failed to load companies');
-    const companies = await response.json();
+    const companyList = await response.json();
 
-    let html = '<div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">';
-    html += '<h2 style="margin: 0;">👥 Companies</h2>';
-    html += '<button type="button" class="btn btn-add-company" onclick="openAddCompanyModal()">➕ Add Company</button>';
-    html += '</div>';
-    html += '<table style="width: 100%; border-collapse: collapse;">';
-    html += '<thead><tr style="background: #f0f0f0;"><th style="padding: 12px; text-align: left; border: 1px solid #ddd;">Company Name</th><th style="padding: 12px; text-align: left; border: 1px solid #ddd;">Unit Price (₱)</th></tr></thead>';
-    html += '<tbody>';
+    const tbody = document.getElementById('companiesTableBody');
+    if (!tbody) return;
 
-    companies.forEach(company => {
-      html += `<tr style="border: 1px solid #ddd;"><td style="padding: 12px; border: 1px solid #ddd;">${company.name}</td><td style="padding: 12px; border: 1px solid #ddd;">₱${parseFloat(company.unit_price).toFixed(2)}</td></tr>`;
-    });
-
-    html += '</tbody></table>';
-
-    // Replace form section with company list
-    const formSection = document.querySelector('.form-section');
-    if (formSection) {
-      formSection.innerHTML = html.substring(html.indexOf('<div'));
+    if (companyList.length === 0) {
+      tbody.innerHTML = '<tr class="empty-state"><td colspan="2">No companies yet</td></tr>';
+    } else {
+      tbody.innerHTML = companyList.map(company => `<tr>
+        <td>${company.name}</td>
+        <td>₱${parseFloat(company.unit_price).toFixed(2)}</td>
+      </tr>`).join('');
     }
   } catch (err) {
     console.error('Error loading companies:', err);
+    showMessage('Error loading companies', 'error');
   }
 }
 

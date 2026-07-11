@@ -217,6 +217,53 @@
           </table>
         </div>
       </section>
+
+      <section class="companies-section" id="companiesSection" style="display: none;">
+        <div class="section-header">
+          <h2>👥 Companies</h2>
+          <button type="button" class="btn btn-submit" onclick="openAddCompanyModal()" style="margin-left: 10px;">➕ Add Company</button>
+        </div>
+        <div class="table-wrapper">
+          <table id="companiesTable">
+            <thead>
+              <tr>
+                <th>Company Name</th>
+                <th>Unit Price (₱)</th>
+              </tr>
+            </thead>
+            <tbody id="companiesTableBody">
+              <tr class="empty-state">
+                <td colspan="2">No companies yet</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <section class="billing-section" id="billingSection" style="display: none;">
+        <div class="section-header">
+          <h2>📄 Billing Statements</h2>
+          <button type="button" class="btn btn-submit" onclick="openBillingModal()" style="margin-left: 10px;">➕ Create Statement</button>
+        </div>
+        <div class="table-wrapper">
+          <table id="billingTable">
+            <thead>
+              <tr>
+                <th>Company</th>
+                <th>Period</th>
+                <th>Amount (₱)</th>
+                <th>Status</th>
+                <th>Action</th>
+              </tr>
+            </thead>
+            <tbody id="billingTableBody">
+              <tr class="empty-state">
+                <td colspan="5">No billing statements yet</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
     </main>
     </div>
   </div>
