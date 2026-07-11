@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Eau Cure - Water Delivery Tracker</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <div class="container">
+    <header>
+      <h1>💧 Eau Cure</h1>
+      <p>Water Station Delivery Tracker</p>
+    </header>
+
+    <main>
+      <section class="form-section">
+        <h2>Record New Delivery</h2>
+        <form id="deliveryForm">
+          <div class="form-group">
+            <label for="company">Company Delivered</label>
+            <input type="text" id="company" placeholder="Enter company name" required>
+          </div>
+
+          <div class="form-row">
+            <div class="form-group">
+              <label for="bottlesDelivered">Bottles Delivered</label>
+              <input type="number" id="bottlesDelivered" placeholder="0" min="0" required>
+            </div>
+
+            <div class="form-group">
+              <label for="bottlesReturned">Bottles Returned</label>
+              <input type="number" id="bottlesReturned" placeholder="0" min="0" required>
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label for="drNumber">DR Number</label>
+            <input type="text" id="drNumber" placeholder="Enter DR number" required>
+          </div>
+
+          <button type="submit" class="btn btn-primary">Add Delivery</button>
+        </form>
+      </section>
+
+      <section class="table-section">
+        <h2>Delivery Records</h2>
+        <div class="table-wrapper">
+          <table id="deliveriesTable">
+            <thead>
+              <tr>
+                <th>Company</th>
+                <th>Delivered</th>
+                <th>Returned</th>
+                <th>DR Number</th>
+                <th>Timestamp</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody id="tableBody">
+              <tr class="empty-state">
+                <td colspan="6">No deliveries recorded yet</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <!-- Edit Modal -->
+  <div id="editModal" class="modal">
+    <div class="modal-content">
+      <span class="close">&times;</span>
+      <h2>Edit Delivery</h2>
+      <form id="editForm">
+        <input type="hidden" id="editId">
+
+        <div class="form-group">
+          <label for="editCompany">Company Delivered</label>
+          <input type="text" id="editCompany" required>
+        </div>
+
+        <div class="form-row">
+          <div class="form-group">
+            <label for="editBottlesDelivered">Bottles Delivered</label>
+            <input type="number" id="editBottlesDelivered" min="0" required>
+          </div>
+
+          <div class="form-group">
+            <label for="editBottlesReturned">Bottles Returned</label>
+            <input type="number" id="editBottlesReturned" min="0" required>
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label for="editDrNumber">DR Number</label>
+          <input type="text" id="editDrNumber" required>
+        </div>
+
+        <div class="modal-actions">
+          <button type="submit" class="btn btn-primary">Save Changes</button>
+          <button type="button" class="btn btn-secondary" id="cancelBtn">Cancel</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>
