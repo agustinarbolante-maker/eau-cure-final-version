@@ -95,6 +95,11 @@ const reportDateInput = document.getElementById('reportDate');
 const dailyReportContent = document.getElementById('dailyReportContent');
 const printDailyReportBtn = document.getElementById('printDailyReportBtn');
 const downloadDailyReportBtn = document.getElementById('downloadDailyReportBtn');
+const editCompanyModal = document.getElementById('editCompanyModal');
+const closeEditCompanyModalBtn = document.getElementById('closeEditCompanyModal');
+const closeEditCompanyModal2Btn = document.getElementById('closeEditCompanyModal2');
+const editCompanyForm = document.getElementById('editCompanyForm');
+const editCompanyMessage = document.getElementById('editCompanyMessage');
 
 let currentCalendarDate = new Date();
 let selectedDateForDeliveries = new Date();
@@ -146,6 +151,8 @@ closeDailyReportModal2Btn.addEventListener('click', closeDailyReportModal);
 reportDateInput.addEventListener('change', generateDailyReport);
 printDailyReportBtn.addEventListener('click', printDailyReport);
 downloadDailyReportBtn.addEventListener('click', downloadDailyReport);
+closeEditCompanyModalBtn.addEventListener('click', closeEditCompanyModal);
+closeEditCompanyModal2Btn.addEventListener('click', closeEditCompanyModal);
 
 async function fetchCompanies() {
   try {
@@ -520,6 +527,7 @@ async function loadBackupList() {
           <div class="backup-actions">
             <button class="btn btn-small btn-restore" onclick="restoreBackup('${backup.filename}')">Restore</button>
             <button class="btn btn-small btn-download" onclick="downloadBackup('${backup.filename}')">Download</button>
+            <button class="btn btn-small btn-delete" onclick="deleteBackup('${backup.filename}')" style="background: #dc3545;">Delete</button>
           </div>
         </div>
       `;
@@ -581,6 +589,31 @@ function downloadBackup(filename) {
   window.location.href = `/api/backups/download/${filename}`;
 }
 
+async function deleteBackup(filename) {
+  Swal.fire({
+    title: 'Delete Backup?',
+    text: `This will permanently delete the backup "${filename}". This action cannot be undone!`,
+    icon: 'warning',
+    showCancelButton: true,
+    confirmButtonColor: '#dc3545',
+    cancelButtonColor: '#6c757d',
+    confirmButtonText: 'Yes, delete it!',
+    cancelButtonText: 'Cancel'
+  }).then(async (result) => {
+    if (result.isConfirmed) {
+      try {
+        const response = await fetch(`/api/backups/${filename}`, { method: 'DELETE' });
+        if (!response.ok) throw new Error('Failed to delete backup');
+
+        showMessage('Backup deleted successfully!', 'success');
+        loadBackupList();
+      } catch (err) {
+        showMessage('Error deleting backup: ' + err.message, 'error');
+      }
+    }
+  });
+}
+
 function populateFilterCompanyDropdown() {
   const options = companies.map(company =>
     `<option value="${company}">${company}</option>`
@@ -592,6 +625,7 @@ async function applyFilters() {
   const company = filterCompanySelect.value;
   const startDate = filterStartDateInput.value;
   const endDate = filterEndDateInput.value;
+  const drNumber = document.getElementById('filterDRNumber').value.toLowerCase();
 
   try {
     let url = '/api/deliveries?';
@@ -601,7 +635,16 @@ async function applyFilters() {
 
     const response = await fetch(url);
     if (!response.ok) throw new Error('Failed to filter deliveries');
-    deliveries = await response.json();
+    let allDeliveries = await response.json();
+
+    // Apply DR number filter client-side
+    if (drNumber) {
+      allDeliveries = allDeliveries.filter(d =>
+        d.dr_number.toLowerCase().includes(drNumber)
+      );
+    }
+
+    deliveries = allDeliveries;
     renderTable();
 
     await loadStats(startDate, endDate);
@@ -614,6 +657,7 @@ function resetFilters() {
   filterCompanySelect.value = '';
   filterStartDateInput.value = '';
   filterEndDateInput.value = '';
+  document.getElementById('filterDRNumber').value = '';
   applyFilters();
 }
 
@@ -1057,6 +1101,52 @@ async function submitAddCompany() {
   }
 }
 
+function openEditCompanyModal(companyName, unitPrice) {
+  editCompanyModal.classList.remove('hidden');
+  document.getElementById('editCompanyName').value = companyName;
+  document.getElementById('editCompanyNameDisplay').value = companyName;
+  document.getElementById('editCompanyUnitPrice').value = unitPrice;
+  editCompanyMessage.innerHTML = '';
+}
+
+function closeEditCompanyModal() {
+  editCompanyModal.classList.add('hidden');
+  editCompanyForm.reset();
+  editCompanyMessage.innerHTML = '';
+}
+
+async function submitEditCompany() {
+  const companyName = document.getElementById('editCompanyName').value;
+  const unitPrice = document.getElementById('editCompanyUnitPrice').value.trim();
+
+  if (!unitPrice) {
+    editCompanyMessage.innerHTML = '<span style="color: #dc3545;">Please enter a unit price</span>';
+    return;
+  }
+
+  try {
+    const response = await fetch(`/api/companies/${encodeURIComponent(companyName)}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ unitPrice: parseFloat(unitPrice) })
+    });
+
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(error.error || 'Failed to update company');
+    }
+
+    const result = await response.json();
+    editCompanyMessage.innerHTML = `<span style="color: #28a745;">${result.message || 'Price updated successfully'}</span>`;
+
+    await loadCompaniesList();
+    await fetchCompanies();
+    setTimeout(() => closeEditCompanyModal(), 1000);
+  } catch (err) {
+    editCompanyMessage.innerHTML = `<span style="color: #dc3545;">Error: ${err.message}</span>`;
+  }
+}
+
 function openDailyReportModal() {
   dailyReportModal.classList.remove('hidden');
   reportDateInput.value = new Date().toISOString().split('T')[0];
@@ -1423,11 +1513,12 @@ async function loadCompaniesList() {
     if (!tbody) return;
 
     if (companyList.length === 0) {
-      tbody.innerHTML = '<tr class="empty-state"><td colspan="2">No companies yet</td></tr>';
+      tbody.innerHTML = '<tr class="empty-state"><td colspan="3">No companies yet</td></tr>';
     } else {
       tbody.innerHTML = companyList.map(company => `<tr>
         <td>${company.name}</td>
         <td>₱${parseFloat(company.unit_price).toFixed(2)}</td>
+        <td><button class="btn btn-sm" onclick="openEditCompanyModal('${company.name.replace(/'/g, "\\'")}', ${company.unit_price})">Edit</button></td>
       </tr>`).join('');
     }
   } catch (err) {

@@ -985,6 +985,7 @@ body {
   border: 1px solid #f0f0f0;
   height: fit-content;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+  max-width: 280px;
 }
 
 .calendar-section h2 {
@@ -1067,11 +1068,11 @@ body {
   justify-content: center;
   position: relative;
   background: white;
-  font-size: 9px;
+  font-size: 8px;
   font-weight: 500;
   color: #666;
   box-shadow: none;
-  min-height: 20px;
+  min-height: 18px;
 }
 
 .calendar-day:hover {

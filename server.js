@@ -58,6 +58,22 @@ app.post('/api/companies', async (req, res) => {
   }
 });
 
+app.put('/api/companies/:name', async (req, res) => {
+  try {
+    const { name } = req.params;
+    const { unitPrice } = req.body;
+    if (unitPrice === undefined) {
+      return res.status(400).json({ error: 'Unit price is required' });
+    }
+    await db.updateCompanyPrice(name, unitPrice);
+    const companies = await db.getAllCompaniesFromDB();
+    io.emit('companies_updated', companies);
+    res.json({ message: 'Company price updated successfully' });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 app.get('/api/billing/:company', async (req, res) => {
   try {
     const { company } = req.params;
@@ -283,6 +299,27 @@ app.get('/api/backups/download/:filename', (req, res) => {
     }
 
     res.download(backupPath);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.delete('/api/backups/:filename', (req, res) => {
+  try {
+    const { filename } = req.params;
+    const backupPath = path.join(__dirname, 'data', 'backups', filename);
+
+    if (!filename.startsWith('backup_') || !filename.endsWith('.db')) {
+      return res.status(400).json({ error: 'Invalid filename' });
+    }
+
+    const fs = require('fs');
+    if (!fs.existsSync(backupPath)) {
+      return res.status(404).json({ error: 'Backup not found' });
+    }
+
+    fs.unlinkSync(backupPath);
+    res.json({ message: 'Backup deleted successfully' });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }

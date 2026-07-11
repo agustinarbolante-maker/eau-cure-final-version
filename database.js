@@ -214,6 +214,19 @@ function getCompanyPrice(companyName) {
   });
 }
 
+function updateCompanyPrice(companyName, unitPrice) {
+  return new Promise((resolve, reject) => {
+    db.run(
+      "UPDATE companies SET unit_price = ? WHERE name = ?",
+      [unitPrice, companyName],
+      function(err) {
+        if (err) reject(err);
+        else resolve();
+      }
+    );
+  });
+}
+
 function getBillingStatement(companyName, startDate, endDate) {
   return new Promise((resolve, reject) => {
     db.all(
@@ -294,13 +307,13 @@ function getDeliveriesByFilters(company, startDate, endDate) {
     }
 
     if (startDate) {
-      query += ' AND timestamp >= ?';
-      params.push(startDate + 'T00:00:00');
+      query += ' AND DATE(timestamp) >= ?';
+      params.push(startDate);
     }
 
     if (endDate) {
-      query += ' AND timestamp <= ?';
-      params.push(endDate + 'T23:59:59');
+      query += ' AND DATE(timestamp) <= ?';
+      params.push(endDate);
     }
 
     query += ' ORDER BY timestamp DESC';
@@ -473,6 +486,7 @@ module.exports = {
   getAllCompaniesFromDB,
   addCompany,
   getCompanyPrice,
+  updateCompanyPrice,
   getBillingStatement,
   saveBillingStatement,
   getAllBillingStatements,
