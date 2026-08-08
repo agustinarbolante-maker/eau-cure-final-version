@@ -38,28 +38,29 @@ export function Dashboard() {
           <h2>Welcome, {user?.username}!</h2>
           <p className="role-badge">Role: <strong>{user?.role}</strong></p>
 
-        <div className="dashboard-grid">
-          <div className="card">
-            <h3>👤 User Info</h3>
-            <p><strong>Email:</strong> {user?.email}</p>
-            <p><strong>Role:</strong> {user?.role}</p>
-            <p><strong>ID:</strong> {user?.id}</p>
+          <div className="dashboard-grid">
+            <div className="card">
+              <h3>👤 User Info</h3>
+              <p><strong>Email:</strong> {user?.email}</p>
+              <p><strong>Role:</strong> {user?.role}</p>
+              <p><strong>ID:</strong> {user?.id}</p>
+            </div>
+
+            <div className="card">
+              <h3>🎯 Quick Actions</h3>
+              <p>✅ Authentication working</p>
+              <p>✅ User logged in</p>
+              <p>✅ Backend connected</p>
+            </div>
           </div>
 
-          <div className="card">
-            <h3>🎯 Quick Actions</h3>
-            <p>✅ Authentication working</p>
-            <p>✅ User logged in</p>
-            <p>✅ Backend connected</p>
-          </div>
+          {['owner', 'software_engineer'].includes(user?.role) && (
+            <div className="admin-section">
+              <h3>🔑 Admin Panel</h3>
+              <p>You have full access to create/delete users and manage the system.</p>
+            </div>
+          )}
         </div>
-
-        {['owner', 'software_engineer'].includes(user?.role) && (
-          <div className="admin-section">
-            <h3>🔑 Admin Panel</h3>
-            <p>You have full access to create/delete users and manage the system.</p>
-          </div>
-        )}
       </div>
     </div>
   );
