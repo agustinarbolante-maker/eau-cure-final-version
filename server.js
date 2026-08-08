@@ -39,6 +39,18 @@ const upload = multer({
 
 app.use(cors());
 app.use(bodyParser.json());
+
+// Serve React app build if it exists, otherwise serve old public folder
+const reactBuildPath = path.join(__dirname, 'public', 'react-app', 'build');
+if (fs.existsSync(reactBuildPath)) {
+  app.use('/app', express.static(reactBuildPath));
+  // SPA routing for React
+  app.get('/app/*', (req, res) => {
+    res.sendFile(path.join(reactBuildPath, 'index.html'));
+  });
+}
+
+// Serve old public folder as fallback/default
 app.use(express.static(path.join(__dirname, 'public')));
 
 // Import middleware
