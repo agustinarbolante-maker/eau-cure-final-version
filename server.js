@@ -388,6 +388,16 @@ app.post('/api/backups/upload', upload.single('file'), (req, res) => {
   }
 });
 
+// Authentication and user management routes
+const authRoutes = require('./routes/auth');
+const usersRoutes = require('./routes/users');
+
+app.use('/api/auth', authRoutes);
+app.use('/api/users', usersRoutes);
+
+// Make io available to routes
+app.set('io', io);
+
 async function start() {
   try {
     await db.initDB();
