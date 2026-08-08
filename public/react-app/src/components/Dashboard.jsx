@@ -19,12 +19,24 @@ export function Dashboard() {
           <h1>Eau Cure</h1>
           <p>Water Station Tracker</p>
         </div>
-        <button onClick={handleLogout} className="logout-btn">Logout</button>
+        <div className="user-info">
+          <span>{user?.username}</span>
+          <button onClick={handleLogout} className="logout-btn">Logout</button>
+        </div>
       </nav>
 
       <div className="content">
-        <h2>Welcome, {user?.username}!</h2>
-        <p className="role-badge">Role: <strong>{user?.role}</strong></p>
+        <div className="sidebar">
+          <a href="/dashboard" className="active">Dashboard</a>
+          <a href="/deliveries">Deliveries</a>
+          <a href="/billing">Billing</a>
+          <a href="/reports">Reports</a>
+          {['owner', 'software_engineer'].includes(user?.role) && <a href="/settings">Settings</a>}
+        </div>
+
+        <div className="main">
+          <h2>Welcome, {user?.username}!</h2>
+          <p className="role-badge">Role: <strong>{user?.role}</strong></p>
 
         <div className="dashboard-grid">
           <div className="card">
