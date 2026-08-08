@@ -52,7 +52,7 @@ function initDB() {
               if (err2) {
                 reject(err2);
               } else {
-                initBillingStatementsTable().then(() => seedCompanies()).then(() => resolve()).catch(reject);
+                initBillingStatementsTable().then(() => createUserTable()).then(() => seedCompanies()).then(() => resolve()).catch(reject);
               }
             });
           }
@@ -74,6 +74,25 @@ function initBillingStatementsTable() {
         is_paid INTEGER DEFAULT 0,
         created_date TEXT DEFAULT CURRENT_TIMESTAMP,
         paid_date TEXT
+      )
+    `, (err) => {
+      if (err) reject(err);
+      else resolve();
+    });
+  });
+}
+
+function createUserTable() {
+  return new Promise((resolve, reject) => {
+    db.run(`
+      CREATE TABLE IF NOT EXISTS users (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        username TEXT UNIQUE NOT NULL,
+        email TEXT UNIQUE NOT NULL,
+        password_hash TEXT NOT NULL,
+        role TEXT NOT NULL CHECK (role IN ('owner', 'software_engineer', 'admin')),
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       )
     `, (err) => {
       if (err) reject(err);
@@ -478,6 +497,7 @@ function restoreBackup(backupFilename) {
 
 module.exports = {
   initDB,
+  createUserTable,
   getAllDeliveries,
   addDelivery,
   updateDelivery,
