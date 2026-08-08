@@ -41,6 +41,10 @@ app.use(cors());
 app.use(bodyParser.json());
 app.use(express.static(path.join(__dirname, 'public')));
 
+// Import middleware
+const { authenticateToken } = require('./middleware/auth');
+const { requireAdminOrHigher } = require('./middleware/permissions');
+
 io.on('connection', (socket) => {
   console.log(`User connected: ${socket.id}`);
   socket.on('disconnect', () => {
@@ -48,7 +52,8 @@ io.on('connection', (socket) => {
   });
 });
 
-app.get('/api/companies', async (req, res) => {
+// Companies API (all can view, admin+ can create/edit)
+app.get('/api/companies', authenticateToken, async (req, res) => {
   try {
     const companies = await db.getAllCompaniesFromDB();
     res.json(companies.map(c => c.name));
@@ -57,7 +62,7 @@ app.get('/api/companies', async (req, res) => {
   }
 });
 
-app.get('/api/companies/all', async (req, res) => {
+app.get('/api/companies/all', authenticateToken, async (req, res) => {
   try {
     const companies = await db.getAllCompaniesFromDB();
     res.json(companies);
@@ -66,7 +71,7 @@ app.get('/api/companies/all', async (req, res) => {
   }
 });
 
-app.post('/api/companies', async (req, res) => {
+app.post('/api/companies', authenticateToken, requireAdminOrHigher, async (req, res) => {
   try {
     const { name, unitPrice } = req.body;
     if (!name || unitPrice === undefined) {
@@ -81,7 +86,7 @@ app.post('/api/companies', async (req, res) => {
   }
 });
 
-app.put('/api/companies/:name', async (req, res) => {
+app.put('/api/companies/:name', authenticateToken, requireAdminOrHigher, async (req, res) => {
   try {
     const { name } = req.params;
     const { unitPrice } = req.body;
@@ -97,7 +102,7 @@ app.put('/api/companies/:name', async (req, res) => {
   }
 });
 
-app.get('/api/billing/:company', async (req, res) => {
+app.get('/api/billing/:company', authenticateToken, requireAdminOrHigher, async (req, res) => {
   try {
     const { company } = req.params;
     const { startDate, endDate } = req.query;
@@ -115,7 +120,7 @@ app.get('/api/billing/:company', async (req, res) => {
   }
 });
 
-app.post('/api/billing-statements', async (req, res) => {
+app.post('/api/billing-statements', authenticateToken, requireAdminOrHigher, async (req, res) => {
   try {
     const { company, startDate, endDate, totalAmount } = req.body;
 
@@ -130,7 +135,7 @@ app.post('/api/billing-statements', async (req, res) => {
   }
 });
 
-app.get('/api/billing-statements', async (req, res) => {
+app.get('/api/billing-statements', authenticateToken, async (req, res) => {
   try {
     const statements = await db.getAllBillingStatements();
     res.json(statements);
@@ -139,7 +144,7 @@ app.get('/api/billing-statements', async (req, res) => {
   }
 });
 
-app.put('/api/billing-statements/:id', async (req, res) => {
+app.put('/api/billing-statements/:id', authenticateToken, requireAdminOrHigher, async (req, res) => {
   try {
     const { id } = req.params;
     const { isPaid } = req.body;
@@ -155,7 +160,7 @@ app.put('/api/billing-statements/:id', async (req, res) => {
   }
 });
 
-app.delete('/api/billing-statements/:id', async (req, res) => {
+app.delete('/api/billing-statements/:id', authenticateToken, requireAdminOrHigher, async (req, res) => {
   try {
     const { id } = req.params;
     await db.deleteBillingStatement(id);
@@ -165,7 +170,7 @@ app.delete('/api/billing-statements/:id', async (req, res) => {
   }
 });
 
-app.get('/api/deliveries', async (req, res) => {
+app.get('/api/deliveries', authenticateToken, async (req, res) => {
   try {
     const { company, startDate, endDate } = req.query;
 
@@ -202,7 +207,7 @@ app.get('/api/stats/companies', async (req, res) => {
   }
 });
 
-app.post('/api/deliveries', async (req, res) => {
+app.post('/api/deliveries', authenticateToken, requireAdminOrHigher, async (req, res) => {
   try {
     const { company, bottlesDelivered, bottlesReturned, drNumber, timestamp } = req.body;
 
@@ -219,7 +224,7 @@ app.post('/api/deliveries', async (req, res) => {
   }
 });
 
-app.put('/api/deliveries/:id', async (req, res) => {
+app.put('/api/deliveries/:id', authenticateToken, requireAdminOrHigher, async (req, res) => {
   try {
     const { id } = req.params;
     const { company, bottlesDelivered, bottlesReturned, drNumber } = req.body;
@@ -237,7 +242,7 @@ app.put('/api/deliveries/:id', async (req, res) => {
   }
 });
 
-app.delete('/api/deliveries/:id', async (req, res) => {
+app.delete('/api/deliveries/:id', authenticateToken, requireAdminOrHigher, async (req, res) => {
   try {
     const { id } = req.params;
     await db.deleteDelivery(id);
@@ -249,7 +254,7 @@ app.delete('/api/deliveries/:id', async (req, res) => {
   }
 });
 
-app.get('/api/deliveries/export/csv', async (req, res) => {
+app.get('/api/deliveries/export/csv', authenticateToken, async (req, res) => {
   try {
     const { company, startDate, endDate } = req.query;
 
@@ -280,7 +285,7 @@ app.get('/api/deliveries/export/csv', async (req, res) => {
   }
 });
 
-app.get('/api/backups', async (req, res) => {
+app.get('/api/backups', authenticateToken, async (req, res) => {
   try {
     const backups = await db.listBackups();
     res.json(backups);
@@ -289,7 +294,7 @@ app.get('/api/backups', async (req, res) => {
   }
 });
 
-app.post('/api/backups', async (req, res) => {
+app.post('/api/backups', authenticateToken, async (req, res) => {
   try {
     const result = await db.performBackup();
     res.json(result);
@@ -298,7 +303,7 @@ app.post('/api/backups', async (req, res) => {
   }
 });
 
-app.post('/api/backups/restore/:filename', async (req, res) => {
+app.post('/api/backups/restore/:filename', authenticateToken, async (req, res) => {
   try {
     const { filename } = req.params;
     const result = await db.restoreBackup(filename);
@@ -308,7 +313,7 @@ app.post('/api/backups/restore/:filename', async (req, res) => {
   }
 });
 
-app.get('/api/backups/download/:filename', (req, res) => {
+app.get('/api/backups/download/:filename', authenticateToken, (req, res) => {
   try {
     const { filename } = req.params;
     const backupPath = path.join(__dirname, 'data', 'backups', filename);
