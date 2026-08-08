@@ -40,18 +40,29 @@ const upload = multer({
 app.use(cors());
 app.use(bodyParser.json());
 
-// Serve React app build if it exists, otherwise serve old public folder
+// Serve React app build if it exists (at root path)
 const reactBuildPath = path.join(__dirname, 'public', 'react-app', 'build');
-if (fs.existsSync(reactBuildPath)) {
-  app.use('/app', express.static(reactBuildPath));
-  // SPA routing for React
-  app.get('/app/*', (req, res) => {
-    res.sendFile(path.join(reactBuildPath, 'index.html'));
-  });
-}
+const reactIndexPath = path.join(reactBuildPath, 'index.html');
 
-// Serve old public folder as fallback/default
-app.use(express.static(path.join(__dirname, 'public')));
+if (fs.existsSync(reactBuildPath)) {
+  // Serve React static files and app
+  app.use(express.static(reactBuildPath, { maxAge: '1d', etag: false }));
+  // SPA routing - catch all non-API routes and serve React index.html
+  app.get('*', (req, res) => {
+    // Don't serve index.html for API routes or requests that should 404
+    if (req.path.startsWith('/api/') || req.path.includes('.')) {
+      return res.status(404).json({ error: 'Not found' });
+    }
+    res.sendFile(reactIndexPath, (err) => {
+      if (err) {
+        res.status(500).send('Error loading React app');
+      }
+    });
+  });
+} else {
+  // Fallback: serve old public folder
+  app.use(express.static(path.join(__dirname, 'public')));
+}
 
 // Import middleware
 const { authenticateToken } = require('./middleware/auth');
