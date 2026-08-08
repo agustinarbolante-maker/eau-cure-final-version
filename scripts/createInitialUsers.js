@@ -3,6 +3,10 @@ const { hashPassword } = require('../utils/passwordUtils');
 
 async function createInitialUsers() {
   try {
+    console.log('Initializing database...');
+    await db.initDB();
+    console.log('Database initialized');
+
     console.log('Creating initial users...');
 
     const existingUsers = await db.getAllUsers();
