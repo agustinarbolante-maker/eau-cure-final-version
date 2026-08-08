@@ -8,6 +8,7 @@ import { Deliveries } from './components/Deliveries';
 import { Billing } from './components/Billing';
 import { Reports } from './components/Reports';
 import { Settings } from './components/Settings';
+import './styles/design-system.css';
 import './App.css';
 
 function App() {
