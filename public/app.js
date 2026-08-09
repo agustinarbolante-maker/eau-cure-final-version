@@ -218,10 +218,12 @@ async function loadCompanies() {
 
 async function loadBillings() {
   try {
-    const response = await fetch('/api/billings', { headers: getHeaders() });
+    const response = await fetch('/api/billing-statements', { headers: getHeaders() });
     if (response.ok) {
       const data = await response.json();
       renderBillings(data);
+    } else {
+      console.error('Error loading billings:', response.status, response.statusText);
     }
   } catch (error) {
     console.error('Error loading billings:', error);
@@ -807,7 +809,7 @@ document.getElementById('billingForm')?.addEventListener('submit', async (e) => 
 
 async function toggleBillingStatus(id) {
   try {
-    const response = await fetch(`/api/billings/${id}`, { headers: getHeaders() });
+    const response = await fetch(`/api/billing-statements/${id}`, { headers: getHeaders() });
     if (response.ok) {
       const billing = await response.json();
       document.getElementById('editBilId').value = id;
@@ -825,10 +827,10 @@ document.getElementById('editBillingForm')?.addEventListener('submit', async (e)
   const id = document.getElementById('editBilId').value;
 
   try {
-    const response = await fetch(`/api/billings/${id}`, { headers: getHeaders() });
+    const response = await fetch(`/api/billing-statements/${id}`, { headers: getHeaders() });
     const billing = response.ok ? await response.json() : null;
 
-    const updateResponse = await fetch(`/api/billings/${id}`, {
+    const updateResponse = await fetch(`/api/billing-statements/${id}`, {
       method: 'PUT',
       headers: getHeaders(),
       body: JSON.stringify({ paid: !billing.paid })
@@ -847,7 +849,7 @@ async function deleteBilling(id) {
   if (!confirm('Delete this billing statement?')) return;
 
   try {
-    const response = await fetch(`/api/billings/${id}`, { method: 'DELETE', headers: getHeaders() });
+    const response = await fetch(`/api/billing-statements/${id}`, { method: 'DELETE', headers: getHeaders() });
     if (response.ok) {
       loadBillings();
     }
