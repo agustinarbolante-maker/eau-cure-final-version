@@ -239,37 +239,23 @@
 
       <!-- BILLING PAGE -->
       <section id="billing-page" class="page-content">
-        <div class="page-grid">
-          <!-- Form Section -->
-          <div class="form-section">
-            <h2>Create Billing Statement</h2>
-            <form id="billingForm">
-              <div class="form-group">
-                <label>Company</label>
-                <select id="bilCompany" required></select>
-              </div>
-              <div class="form-group">
-                <label>Billing Month</label>
-                <input type="month" id="bilMonth" required>
-              </div>
-              <div class="form-group">
-                <label>Total Bottles Delivered</label>
-                <input type="number" id="bilBottles" placeholder="0" min="0" disabled>
-              </div>
-              <div class="form-group">
-                <label>Unit Price (₱)</label>
-                <input type="number" id="bilUnitPrice" placeholder="0.00" step="0.01" min="0" disabled>
-              </div>
-              <div class="form-group" style="background-color: #f0f0f0; padding: 16px; border-radius: 6px;">
-                <label style="font-weight: bold; font-size: 1.1em;">Total Amount (₱)</label>
-                <input type="number" id="bilAmount" placeholder="0.00" step="0.01" min="0" disabled style="font-size: 1.2em; font-weight: bold;">
-              </div>
-              <button type="submit" class="btn btn-primary">Create Billing</button>
-            </form>
-          </div>
+        <div class="form-section" style="max-width: 500px;">
+          <h2>Create Billing Statement</h2>
+          <p style="color: #666; margin-bottom: 20px; font-size: 0.95em;">Select company and month - billing amount will be calculated automatically</p>
+          <form id="billingForm">
+            <div class="form-group">
+              <label>Company</label>
+              <select id="bilCompany" required></select>
+            </div>
+            <div class="form-group">
+              <label>Billing Month</label>
+              <input type="month" id="bilMonth" required>
+            </div>
+            <button type="submit" class="btn btn-primary" style="width: 100%; margin-top: 10px;">Create Billing Statement</button>
+          </form>
         </div>
 
-        <h2>Billing Statements</h2>
+        <h2 style="margin-top: 40px;">Billing Statements</h2>
         <div class="table-wrapper">
           <table id="billingTable">
             <thead>

@@ -441,13 +441,14 @@ function populateCompanySelects(companies) {
 // CALENDAR
 // ============================================
 
+let currentCalendarDate = new Date();
+
 function renderDeliveryCalendar() {
   const calendarDiv = document.getElementById('deliveryCalendar');
   if (!calendarDiv) return;
 
-  const today = new Date();
-  const year = today.getFullYear();
-  const month = today.getMonth();
+  const year = currentCalendarDate.getFullYear();
+  const month = currentCalendarDate.getMonth();
 
   const firstDay = new Date(year, month, 1);
   const lastDay = new Date(year, month + 1, 0);
@@ -455,28 +456,42 @@ function renderDeliveryCalendar() {
   const startingDayOfWeek = firstDay.getDay();
 
   let html = `
-    <div style="margin-bottom: 16px; text-align: center;">
-      <h3>${firstDay.toLocaleString('default', { month: 'long', year: 'numeric' })}</h3>
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; gap: 8px;">
+      <button type="button" onclick="prevCalendarMonth()" class="btn btn-secondary btn-sm" style="padding: 6px 10px; font-size: 0.85em;">←</button>
+      <div style="text-align: center; flex: 1; font-weight: 600; color: #667eea; font-size: 0.95em;">
+        ${firstDay.toLocaleString('default', { month: 'short', year: 'numeric' })}
+      </div>
+      <button type="button" onclick="nextCalendarMonth()" class="btn btn-secondary btn-sm" style="padding: 6px 10px; font-size: 0.85em;">→</button>
     </div>
-    <div style="display: grid; grid-template-columns: repeat(7, 1fr); gap: 8px;">
+    <div style="display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px; font-size: 0.85em;">
   `;
 
-  const dayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+  const dayNames = ['S', 'M', 'T', 'W', 'T', 'F', 'S'];
   dayNames.forEach(day => {
-    html += `<div style="text-align: center; font-weight: 600; color: #667eea;">${day}</div>`;
+    html += `<div style="text-align: center; font-weight: 600; color: #667eea; padding: 4px 0;">${day}</div>`;
   });
 
   for (let i = 0; i < startingDayOfWeek; i++) {
-    html += '<div></div>';
+    html += '<div style="padding: 4px;"></div>';
   }
 
   for (let day = 1; day <= daysInMonth; day++) {
     const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
-    html += `<div class="calendar-day" onclick="selectDeliveryDate('${dateStr}')" style="cursor: pointer;">${day}</div>`;
+    html += `<button type="button" onclick="selectDeliveryDate('${dateStr}')" style="padding: 4px; border: 1px solid #ddd; border-radius: 4px; background: white; cursor: pointer; font-size: 0.85em; font-weight: 500;" class="calendar-day">${day}</button>`;
   }
 
   html += '</div>';
   calendarDiv.innerHTML = html;
+}
+
+function prevCalendarMonth() {
+  currentCalendarDate.setMonth(currentCalendarDate.getMonth() - 1);
+  renderDeliveryCalendar();
+}
+
+function nextCalendarMonth() {
+  currentCalendarDate.setMonth(currentCalendarDate.getMonth() + 1);
+  renderDeliveryCalendar();
 }
 
 function selectDeliveryDate(dateStr) {
@@ -697,14 +712,14 @@ async function showCompanyStats(id) {
 // CRUD OPERATIONS - BILLING
 // ============================================
 
-async function calculateBillingAmount() {
+document.getElementById('billingForm')?.addEventListener('submit', async (e) => {
+  e.preventDefault();
+
   const companyId = parseInt(document.getElementById('bilCompany').value);
   const bilMonth = document.getElementById('bilMonth').value;
 
   if (!companyId || !bilMonth) {
-    document.getElementById('bilBottles').value = '0';
-    document.getElementById('bilUnitPrice').value = '0.00';
-    document.getElementById('bilAmount').value = '0.00';
+    alert('Please select company and month');
     return;
   }
 
@@ -733,28 +748,14 @@ async function calculateBillingAmount() {
     const unitPrice = company ? parseFloat(company.unit_price) : 0;
     const totalAmount = totalBottles * unitPrice;
 
-    document.getElementById('bilBottles').value = totalBottles;
-    document.getElementById('bilUnitPrice').value = unitPrice.toFixed(2);
-    document.getElementById('bilAmount').value = totalAmount.toFixed(2);
-  } catch (error) {
-    console.error('Error calculating billing:', error);
-  }
-}
+    // Create billing statement
+    const data = {
+      company_id: companyId,
+      period: bilMonth,
+      amount: totalAmount,
+      paid: false
+    };
 
-document.getElementById('bilCompany')?.addEventListener('change', calculateBillingAmount);
-document.getElementById('bilMonth')?.addEventListener('change', calculateBillingAmount);
-
-document.getElementById('billingForm')?.addEventListener('submit', async (e) => {
-  e.preventDefault();
-
-  const data = {
-    company_id: parseInt(document.getElementById('bilCompany').value),
-    period: document.getElementById('bilMonth').value,
-    amount: parseFloat(document.getElementById('bilAmount').value),
-    paid: false
-  };
-
-  try {
     const response = await fetch('/api/billings', {
       method: 'POST',
       headers: getHeaders(),
@@ -762,12 +763,15 @@ document.getElementById('billingForm')?.addEventListener('submit', async (e) => 
     });
 
     if (response.ok) {
+      alert(`Billing created!\n${company.name} - ${bilMonth}\nTotal: ₱${totalAmount.toFixed(2)} (${totalBottles} bottles × ₱${unitPrice.toFixed(2)})`);
       document.getElementById('billingForm').reset();
-      document.getElementById('bilAmount').value = '0.00';
       loadBillings();
+    } else {
+      alert('Error creating billing statement');
     }
   } catch (error) {
-    console.error('Error adding billing:', error);
+    console.error('Error creating billing:', error);
+    alert('Error creating billing statement');
   }
 });
 
