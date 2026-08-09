@@ -3,531 +3,148 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Eau Cure - Water Station Delivery Tracker</title>
+  <title>Eau Cure - Water Delivery Tracker</title>
   <link rel="stylesheet" href="styles.css">
-  <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
-  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 </head>
 <body>
-  <div class="app-container">
-    <aside class="sidebar">
-      <div class="sidebar-header">
-        <h1>💧 Eau Cure</h1>
-      </div>
-      <nav class="sidebar-nav">
-        <a href="#" class="nav-item active" onclick="switchPage('dashboard')">📊 Dashboard</a>
-        <a href="#" class="nav-item" onclick="switchPage('deliveries')">📋 Deliveries</a>
-        <a href="#" class="nav-item" onclick="switchPage('records')">📑 Records</a>
-        <a href="#" class="nav-item" onclick="switchPage('companies')">👥 Companies</a>
-        <a href="#" class="nav-item" onclick="switchPage('billing')">📄 Billing</a>
-        <a href="#" class="nav-item" onclick="switchPage('settings')">⚙️ Settings</a>
-      </nav>
-    </aside>
+  <!-- Login Page -->
+  <div id="loginPage" class="login-page" style="display: none;">
+    <div class="login-container">
+      <div class="login-card">
+        <div style="text-align: center; margin-bottom: 40px;">
+          <h1 style="font-size: 2.5em; margin: 0 0 10px 0;">💧 Eau Cure</h1>
+          <p style="font-size: 1.1em; opacity: 0.95;">Water Delivery Tracker</p>
+        </div>
 
-    <div class="main-wrapper">
-      <header class="header">
-        <div class="header-top">
-          <div>
-            <h1>Water Station Delivery Tracker</h1>
-            <p>Track and manage all water deliveries</p>
+        <form id="loginForm">
+          <h2 style="text-align: center; border: none; padding: 0; margin-bottom: 30px; font-size: 1.5em;">Employee Login</h2>
+
+          <div class="form-group">
+            <label for="username">Username</label>
+            <input type="text" id="username" placeholder="Enter your username" required>
           </div>
+
+          <div class="form-group">
+            <label for="password">Password</label>
+            <input type="password" id="password" placeholder="Enter your password" required>
+          </div>
+
+          <button type="submit" class="btn btn-primary" style="width: 100%;">Login</button>
+
+          <div id="loginError" style="display: none; color: #f44336; margin-top: 15px; text-align: center; font-weight: 600;"></div>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <!-- Main App Page -->
+  <div id="appPage" class="app-page" style="display: none;">
+    <div class="container">
+      <header style="display: flex; justify-content: space-between; align-items: center;">
+        <div>
+          <h1>💧 Eau Cure</h1>
+          <p>Water Station Delivery Tracker</p>
+        </div>
+        <div style="text-align: right;">
+          <p style="margin: 0 0 10px 0; color: white;"><strong id="currentUser"></strong></p>
+          <button id="logoutBtn" class="btn btn-secondary" style="padding: 8px 16px; font-size: 0.9em;">Logout</button>
         </div>
       </header>
 
-      <main class="main-content">
-      <section class="dashboard-section" id="dashboardSection">
-        <div class="dashboard-header">
-          <h2>📊 Dashboard</h2>
-        </div>
-        <div class="dashboard-tabs">
-          <button type="button" class="dashboard-tab active" onclick="switchDashboardTab('overview')">Overview</button>
-          <button type="button" class="dashboard-tab" onclick="switchDashboardTab('deliveries')">Deliveries</button>
-          <button type="button" class="dashboard-tab" onclick="switchDashboardTab('returns')">Returns</button>
-          <button type="button" class="dashboard-tab" onclick="switchDashboardTab('analytics')">Analytics</button>
-        </div>
-        <div class="quick-filters">
-          <button type="button" class="btn btn-filter" onclick="filterQuickRange('today')">Today</button>
-          <button type="button" class="btn btn-filter" onclick="filterQuickRange('week')">This Week</button>
-          <button type="button" class="btn btn-filter" onclick="filterQuickRange('month')">This Month</button>
-          <button type="button" class="btn btn-filter" onclick="filterQuickRange('all')">All Time</button>
-        </div>
-        <div class="stats-grid">
-          <div class="stat-card stat-card-blue">
-            <div class="stat-icon">📦</div>
-            <div class="stat-label">Total Deliveries</div>
-            <div class="stat-value" id="totalDeliveries">0</div>
-          </div>
-          <div class="stat-card stat-card-green">
-            <div class="stat-icon">📥</div>
-            <div class="stat-label">Delivered</div>
-            <div class="stat-value" id="totalDelivered">0</div>
-          </div>
-          <div class="stat-card stat-card-orange">
-            <div class="stat-icon">📤</div>
-            <div class="stat-label">Returned</div>
-            <div class="stat-value" id="totalReturned">0</div>
-          </div>
-          <div class="stat-card stat-card-purple">
-            <div class="stat-icon">📊</div>
-            <div class="stat-label">Net Bottles</div>
-            <div class="stat-value" id="netBottles">0</div>
-          </div>
-        </div>
-
-        <div class="chart-container">
-          <h3>📈 Delivery Trends (Last 7 Days)</h3>
-          <canvas id="deliveryChart"></canvas>
-        </div>
-      </section>
-
-      <section class="filter-section">
-        <h2>🔍 Filters & Search</h2>
-        <div class="filter-controls">
-          <div class="filter-group">
-            <label for="filterCompany">Company:</label>
-            <select id="filterCompany" onchange="applyFilters()">
-              <option value="">All Companies</option>
-            </select>
-          </div>
-          <div class="filter-group">
-            <label for="filterStartDate">From:</label>
-            <input type="date" id="filterStartDate" onchange="applyFilters()">
-          </div>
-          <div class="filter-group">
-            <label for="filterEndDate">To:</label>
-            <input type="date" id="filterEndDate" onchange="applyFilters()">
-          </div>
-          <div class="filter-group">
-            <label for="filterDRNumber">DR Number:</label>
-            <input type="text" id="filterDRNumber" placeholder="Search DR..." onkeyup="applyFilters()">
-          </div>
-          <button type="button" class="btn btn-reset" onclick="resetFilters()">Reset Filters</button>
-          <button type="button" class="btn btn-stats" onclick="openCompanyStatsModal()">📈 Company Stats</button>
-          <button type="button" class="btn btn-daily" onclick="openDailyReportModal()">📋 Daily Report</button>
-        </div>
-      </section>
-
-      <div class="deliveries-layout-container">
-        <section class="calendar-section">
-          <h2>📅 Calendar</h2>
-          <div class="calendar-controls">
-            <button type="button" class="btn btn-nav" id="prevMonth">← Prev</button>
-            <span id="calendarMonth" class="calendar-month">June 2026</span>
-            <button type="button" class="btn btn-nav" id="nextMonth">Next →</button>
-          </div>
-          <div class="calendar-container" id="calendar"></div>
-          <div class="selected-date-display">
-            <strong>Selected Date:</strong> <span id="selectedDateFromCalendar">Today</span>
-          </div>
-        </section>
-
+      <main>
         <section class="form-section">
-          <h2>📝 New Delivery Entry</h2>
-          <div class="date-picker-section">
-            <span class="form-selected-date">Adding for: <strong id="formDateDisplay">Today</strong></span>
-            <input type="time" id="deliveryTime" value="09:00" required style="display: none;">
-          </div>
-
+          <h2>Record New Delivery</h2>
           <form id="deliveryForm">
             <div class="form-group">
-              <label for="company">Company Delivered:</label>
-              <select id="company" name="company" required>
-                <option value="">-- Select a Company --</option>
-              </select>
+              <label for="company">Company Delivered</label>
+              <input type="text" id="company" placeholder="Enter company name" required>
+            </div>
+
+            <div class="form-row">
+              <div class="form-group">
+                <label for="bottlesDelivered">Bottles Delivered</label>
+                <input type="number" id="bottlesDelivered" placeholder="0" min="0" required>
+              </div>
+
+              <div class="form-group">
+                <label for="bottlesReturned">Bottles Returned</label>
+                <input type="number" id="bottlesReturned" placeholder="0" min="0" required>
+              </div>
             </div>
 
             <div class="form-group">
-              <label for="bottlesDelivered">Number of Bottles Delivered:</label>
-              <input type="number" id="bottlesDelivered" name="bottlesDelivered" min="0" required>
+              <label for="drNumber">DR Number</label>
+              <input type="text" id="drNumber" placeholder="Enter DR number" required>
             </div>
 
-            <div class="form-group">
-              <label for="bottlesReturned">Number of Bottles Returned:</label>
-              <input type="number" id="bottlesReturned" name="bottlesReturned" min="0" required>
-            </div>
-
-            <div class="form-group">
-              <label for="drNumber">DR Number:</label>
-              <input type="text" id="drNumber" name="drNumber" required>
-            </div>
-
-            <button type="submit" class="btn btn-submit">Add Delivery</button>
+            <button type="submit" class="btn btn-primary">Add Delivery</button>
           </form>
-          <div id="formMessage" class="form-message"></div>
         </section>
-      </div>
 
-      <section class="settings-page" id="settingsPage" style="display: none;">
-        <h2>⚙️ Settings</h2>
-        <div class="settings-content">
-          <div class="settings-group">
-            <div class="form-group">
-              <label for="settingsDefaultCompany">Default Company:</label>
-              <select id="settingsDefaultCompany">
-                <option value="">None</option>
-              </select>
-            </div>
-            <div class="form-group">
-              <label for="settingsRowsPerPage">Rows Per Page:</label>
-              <select id="settingsRowsPerPage">
-                <option value="10">10</option>
-                <option value="25">25</option>
-                <option value="50">50</option>
-                <option value="100">100</option>
-              </select>
-            </div>
-            <div class="form-group checkbox">
-              <label>
-                <input type="checkbox" id="settingsAutoRefresh">
-                Auto-refresh stats every 30 seconds
-              </label>
-            </div>
-            <div class="form-group checkbox">
-              <label>
-                <input type="checkbox" id="settingsDarkMode">
-                🌙 Dark Mode
-              </label>
-            </div>
-          </div>
-          <button type="button" class="btn btn-submit" id="saveSettingsBtnPage">Save Settings</button>
-        </div>
-      </section>
-
-      <section class="table-section">
-        <div class="section-header">
+        <section class="table-section">
           <h2>Delivery Records</h2>
-          <div class="header-buttons">
-            <button type="button" class="btn btn-export" id="exportBtn" title="Export to CSV">📥 Export CSV</button>
-            <button type="button" class="btn btn-print" id="printBtn" title="Print records">🖨️ Print</button>
-            <button type="button" class="btn btn-backup" id="backupBtn" title="Create manual backup">💾 Backup</button>
+          <div class="table-wrapper">
+            <table id="deliveriesTable">
+              <thead>
+                <tr>
+                  <th>Company</th>
+                  <th>Delivered</th>
+                  <th>Returned</th>
+                  <th>DR Number</th>
+                  <th>Timestamp</th>
+                  <th>Actions</th>
+                </tr>
+              </thead>
+              <tbody id="tableBody">
+                <tr class="empty-state">
+                  <td colspan="6">No deliveries recorded yet</td>
+                </tr>
+              </tbody>
+            </table>
           </div>
-        </div>
-        <div class="table-wrapper">
-          <table id="deliveriesTable">
-            <thead>
-              <tr>
-                <th>ID</th>
-                <th>Company</th>
-                <th>Bottles Delivered</th>
-                <th>Bottles Returned</th>
-                <th>DR Number</th>
-                <th>Timestamp</th>
-                <th>Actions</th>
-              </tr>
-            </thead>
-            <tbody id="tableBody">
-              <tr class="empty-state">
-                <td colspan="7">No deliveries recorded yet</td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
-      </section>
-
-      <section class="companies-section" id="companiesSection" style="display: none;">
-        <div class="section-header">
-          <h2>👥 Companies</h2>
-          <button type="button" class="btn btn-submit" onclick="openAddCompanyModal()" style="margin-left: 10px;">➕ Add Company</button>
-        </div>
-        <div class="table-wrapper">
-          <table id="companiesTable">
-            <thead>
-              <tr>
-                <th>Company Name</th>
-                <th>Unit Price (₱)</th>
-                <th>Actions</th>
-              </tr>
-            </thead>
-            <tbody id="companiesTableBody">
-              <tr class="empty-state">
-                <td colspan="3">No companies yet</td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
-      </section>
-
-      <section class="billing-section" id="billingSection" style="display: none;">
-        <div class="section-header">
-          <h2>📄 Billing Statements</h2>
-          <button type="button" class="btn btn-submit" onclick="openBillingModal()" style="margin-left: 10px;">➕ Create Statement</button>
-        </div>
-        <div class="table-wrapper">
-          <table id="billingTable">
-            <thead>
-              <tr>
-                <th>Company</th>
-                <th>Period</th>
-                <th>Amount (₱)</th>
-                <th>Status</th>
-                <th>Action</th>
-              </tr>
-            </thead>
-            <tbody id="billingTableBody">
-              <tr class="empty-state">
-                <td colspan="5">No billing statements yet</td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
-      </section>
-    </main>
+        </section>
+      </main>
     </div>
   </div>
 
-  <div id="settingsModal" class="modal hidden">
+  <!-- Edit Modal -->
+  <div id="editModal" class="modal">
     <div class="modal-content">
-      <div class="modal-header">
-        <h2>Settings</h2>
-        <button type="button" class="modal-close" id="closeSettingsModal">&times;</button>
-      </div>
-      <div class="settings-form">
-        <div class="form-group">
-          <label for="settingsDefaultCompany">Default Company:</label>
-          <select id="settingsDefaultCompany">
-            <option value="">None</option>
-          </select>
-        </div>
-        <div class="form-group">
-          <label for="settingsRowsPerPage">Rows Per Page:</label>
-          <select id="settingsRowsPerPage">
-            <option value="10">10</option>
-            <option value="25">25</option>
-            <option value="50">50</option>
-            <option value="100">100</option>
-          </select>
-        </div>
-        <div class="form-group checkbox">
-          <label>
-            <input type="checkbox" id="settingsAutoRefresh">
-            Auto-refresh stats every 30 seconds
-          </label>
-        </div>
-        <div class="form-group checkbox">
-          <label>
-            <input type="checkbox" id="settingsDarkMode">
-            🌙 Dark Mode
-          </label>
-        </div>
-      </div>
-      <div class="modal-buttons">
-        <button type="button" class="btn btn-submit" id="saveSettingsBtn">Save Settings</button>
-        <button type="button" class="btn btn-cancel" id="closeSettingsModal2">Close</button>
-      </div>
-    </div>
-  </div>
-
-  <div id="companyStatsModal" class="modal hidden">
-    <div class="modal-content">
-      <div class="modal-header">
-        <h2>Company Statistics</h2>
-        <button type="button" class="modal-close" id="closeCompanyStatsModal">&times;</button>
-      </div>
-      <div class="company-stats-content">
-        <table class="company-stats-table">
-          <thead>
-            <tr>
-              <th>Company</th>
-              <th>Deliveries</th>
-              <th>Bottles Delivered</th>
-              <th>Bottles Returned</th>
-            </tr>
-          </thead>
-          <tbody id="companyStatsBody">
-            <tr>
-              <td colspan="4" class="loading">Loading...</td>
-            </tr>
-          </tbody>
-        </table>
-      </div>
-      <div class="modal-buttons">
-        <button type="button" class="btn btn-cancel" id="closeCompanyStatsModal2">Close</button>
-      </div>
-    </div>
-  </div>
-
-  <div id="backupModal" class="modal hidden">
-    <div class="modal-content modal-wide">
-      <div class="modal-header">
-        <h2>Backup Management</h2>
-        <button type="button" class="modal-close" id="closeBackupModal">&times;</button>
-      </div>
-      <div class="backup-content">
-        <div style="display: flex; gap: 30px; margin-bottom: 20px;">
-          <div style="flex: 1;">
-            <h3>Available Backups</h3>
-            <div id="backupList" class="backup-list">
-              <p class="loading">Loading backups...</p>
-            </div>
-          </div>
-          <div style="flex: 1; border-left: 1px solid #e0e0e0; padding-left: 20px;">
-            <h3>Upload Backup File</h3>
-            <div style="margin-bottom: 15px;">
-              <p style="font-size: 13px; color: #666; margin-bottom: 10px;">Restore a previously downloaded backup file:</p>
-              <input type="file" id="backupFileInput" accept=".db" style="margin-bottom: 10px; display: block; width: 100%;">
-              <button type="button" class="btn btn-submit" onclick="uploadBackupFile()" style="width: 100%;">Upload & Restore</button>
-            </div>
-            <div id="uploadMessage" class="form-message" style="margin-top: 10px;"></div>
-          </div>
-        </div>
-      </div>
-      <div class="modal-buttons">
-        <button type="button" class="btn btn-submit" id="manualBackupBtn">Create Backup Now</button>
-        <button type="button" class="btn btn-cancel" id="closeBackupModal2">Close</button>
-      </div>
-    </div>
-  </div>
-
-  <div id="editModal" class="modal hidden">
-    <div class="modal-content">
-      <div class="modal-header">
-        <h2>Edit Delivery</h2>
-        <button type="button" class="modal-close" id="closeModal">&times;</button>
-      </div>
+      <span class="close">&times;</span>
+      <h2>Edit Delivery</h2>
       <form id="editForm">
         <input type="hidden" id="editId">
+
         <div class="form-group">
-          <label for="editCompany">Company Delivered:</label>
-          <select id="editCompany" required>
-            <option value="">-- Select a Company --</option>
-          </select>
+          <label for="editCompany">Company Delivered</label>
+          <input type="text" id="editCompany" required>
         </div>
-        <div class="form-group">
-          <label for="editBottlesDelivered">Number of Bottles Delivered:</label>
-          <input type="number" id="editBottlesDelivered" min="0" required>
+
+        <div class="form-row">
+          <div class="form-group">
+            <label for="editBottlesDelivered">Bottles Delivered</label>
+            <input type="number" id="editBottlesDelivered" min="0" required>
+          </div>
+
+          <div class="form-group">
+            <label for="editBottlesReturned">Bottles Returned</label>
+            <input type="number" id="editBottlesReturned" min="0" required>
+          </div>
         </div>
+
         <div class="form-group">
-          <label for="editBottlesReturned">Number of Bottles Returned:</label>
-          <input type="number" id="editBottlesReturned" min="0" required>
-        </div>
-        <div class="form-group">
-          <label for="editDrNumber">DR Number:</label>
+          <label for="editDrNumber">DR Number</label>
           <input type="text" id="editDrNumber" required>
         </div>
-        <div class="modal-buttons">
-          <button type="button" class="btn btn-cancel" id="cancelEdit">Cancel</button>
-          <button type="submit" class="btn btn-submit">Save Changes</button>
+
+        <div class="modal-actions">
+          <button type="submit" class="btn btn-primary">Save Changes</button>
+          <button type="button" class="btn btn-secondary" id="cancelBtn">Cancel</button>
         </div>
       </form>
     </div>
   </div>
 
-  <div id="billingModal" class="modal hidden">
-    <div class="modal-content modal-wide">
-      <div class="modal-header">
-        <h2>Billing Statement</h2>
-        <button type="button" class="modal-close" id="closeBillingModal">&times;</button>
-      </div>
-      <div class="billing-controls">
-        <div class="form-group">
-          <label for="billingCompany">Company:</label>
-          <select id="billingCompany" required>
-            <option value="">-- Select a Company --</option>
-          </select>
-        </div>
-        <div class="form-group">
-          <label for="billingStartDate">Start Date:</label>
-          <input type="date" id="billingStartDate" required>
-        </div>
-        <div class="form-group">
-          <label for="billingEndDate">End Date:</label>
-          <input type="date" id="billingEndDate" required>
-        </div>
-      </div>
-      <div id="billingContent" class="billing-content"></div>
-      <div class="modal-buttons">
-        <button type="button" class="btn btn-print" id="printBillingBtn" style="display: none;">🖨️ Print</button>
-        <button type="button" class="btn btn-submit" id="downloadBillingPdfBtn" style="display: none;">📥 Download PDF</button>
-        <button type="button" class="btn btn-success" id="saveBillingBtn" style="display: none;">💾 Save Statement</button>
-        <button type="button" class="btn btn-cancel" id="closeBillingModal2">Close</button>
-      </div>
-    </div>
-  </div>
-
-  <div id="billingHistoryModal" class="modal hidden">
-    <div class="modal-content modal-wide">
-      <div class="modal-header">
-        <h2>Billing Statements History</h2>
-        <button type="button" class="modal-close" id="closeBillingHistoryModal">&times;</button>
-      </div>
-      <div id="billingHistoryContent" class="billing-history-content"></div>
-      <div class="modal-buttons">
-        <button type="button" class="btn btn-cancel" id="closeBillingHistoryModal2">Close</button>
-      </div>
-    </div>
-  </div>
-
-  <div id="dailyReportModal" class="modal hidden">
-    <div class="modal-content modal-wide">
-      <div class="modal-header">
-        <h2>Daily Delivery Report</h2>
-        <button type="button" class="modal-close" id="closeDailyReportModal">&times;</button>
-      </div>
-      <div class="daily-report-controls">
-        <div class="form-group">
-          <label for="reportDate">Select Date:</label>
-          <input type="date" id="reportDate" required>
-        </div>
-      </div>
-      <div id="dailyReportContent" class="daily-report-content"></div>
-      <div class="modal-buttons">
-        <button type="button" class="btn btn-print" id="printDailyReportBtn" style="display: none;">🖨️ Print</button>
-        <button type="button" class="btn btn-submit" id="downloadDailyReportBtn" style="display: none;">📥 Download</button>
-        <button type="button" class="btn btn-cancel" id="closeDailyReportModal2">Close</button>
-      </div>
-    </div>
-  </div>
-
-  <div id="addCompanyModal" class="modal hidden">
-    <div class="modal-content">
-      <div class="modal-header">
-        <h2>Add New Company</h2>
-        <button type="button" class="modal-close" id="closeAddCompanyModal">&times;</button>
-      </div>
-      <form id="addCompanyForm">
-        <div class="form-group">
-          <label for="newCompanyName">Company Name:</label>
-          <input type="text" id="newCompanyName" required placeholder="Enter company name">
-        </div>
-        <div class="form-group">
-          <label for="newCompanyPrice">Unit Price (per bottle):</label>
-          <input type="number" id="newCompanyPrice" step="0.01" required placeholder="e.g., 17.50">
-        </div>
-      </form>
-      <div id="addCompanyMessage" class="form-message"></div>
-      <div class="modal-buttons">
-        <button type="button" class="btn btn-submit" onclick="submitAddCompany()">Add Company</button>
-        <button type="button" class="btn btn-cancel" id="closeAddCompanyModal2">Cancel</button>
-      </div>
-    </div>
-  </div>
-
-  <div id="editCompanyModal" class="modal hidden">
-    <div class="modal-content">
-      <div class="modal-header">
-        <h2>Edit Company Price</h2>
-        <button type="button" class="modal-close" id="closeEditCompanyModal">&times;</button>
-      </div>
-      <form id="editCompanyForm">
-        <input type="hidden" id="editCompanyName">
-        <div class="form-group">
-          <label>Company Name:</label>
-          <input type="text" id="editCompanyNameDisplay" readonly style="background: #f5f5f5; cursor: not-allowed;">
-        </div>
-        <div class="form-group">
-          <label for="editCompanyUnitPrice">Unit Price (per bottle):</label>
-          <input type="number" id="editCompanyUnitPrice" step="0.01" required placeholder="e.g., 17.50">
-        </div>
-      </form>
-      <div id="editCompanyMessage" class="form-message"></div>
-      <div class="modal-buttons">
-        <button type="button" class="btn btn-submit" onclick="submitEditCompany()">Save Changes</button>
-        <button type="button" class="btn btn-cancel" id="closeEditCompanyModal2">Cancel</button>
-      </div>
-    </div>
-  </div>
-
-  <script src="https://cdn.socket.io/4.5.4/socket.io.min.js"></script>
   <script src="app.js"></script>
 </body>
 </html>
