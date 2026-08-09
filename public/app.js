@@ -374,7 +374,7 @@ function renderBillings(billings) {
   const tbody = document.getElementById('billingBody');
 
   if (billings.length === 0) {
-    tbody.innerHTML = '<tr class="empty-state"><td colspan="5">No billing statements yet</td></tr>';
+    tbody.innerHTML = '<tr class="empty-state"><td colspan="7">No billing statements yet</td></tr>';
     return;
   }
 
@@ -384,6 +384,10 @@ function renderBillings(billings) {
       <td>${bill.start_date ? new Date(bill.start_date).toLocaleDateString() : 'N/A'} - ${bill.end_date ? new Date(bill.end_date).toLocaleDateString() : 'N/A'}</td>
       <td>₱${parseFloat(bill.total_amount || bill.amount || 0).toFixed(2)}</td>
       <td><span class="badge ${bill.is_paid || bill.paid ? 'badge-success' : 'badge-danger'}">${bill.is_paid || bill.paid ? 'Paid' : 'Unpaid'}</span></td>
+      <td class="actions">
+        <button class="btn btn-secondary btn-sm" onclick="exportBillingExcel(${bill.id}, '${bill.company_name || bill.company}', '${bill.start_date}', '${bill.end_date}')">📊 Excel</button>
+        <button class="btn btn-secondary btn-sm" onclick="exportBillingPdf(${bill.id}, '${bill.company_name || bill.company}', '${bill.start_date}', '${bill.end_date}')">📄 PDF</button>
+      </td>
       <td class="actions">
         <button class="btn btn-secondary btn-sm" onclick="toggleBillingStatus(${bill.id})">Toggle</button>
         <button class="btn btn-danger btn-sm" onclick="deleteBilling(${bill.id})">Delete</button>
@@ -983,114 +987,190 @@ document.getElementById('backupBtn')?.addEventListener('click', async () => {
 // BILLING EXPORT FUNCTIONS
 // ============================================
 
-document.getElementById('exportBillingExcelBtn')?.addEventListener('click', async () => {
+async function exportBillingExcel(billingId, company, startDate, endDate) {
   try {
-    const response = await fetch('/api/billing-statements', { headers: getHeaders() });
-    if (response.ok) {
-      const billings = await response.json();
+    const deliveriesResponse = await fetch('/api/deliveries', { headers: getHeaders() });
+    const deliveries = deliveriesResponse.ok ? await deliveriesResponse.json() : [];
 
-      // CSV header
-      const header = ['Company', 'Start Date', 'End Date', 'Total Amount', 'Status', 'Created Date'];
-      const rows = billings.map(b => [
-        b.company_name || b.company || '',
-        b.start_date || '',
-        b.end_date || '',
-        b.total_amount || '',
-        b.is_paid || b.paid ? 'Paid' : 'Unpaid',
-        b.created_date || ''
-      ]);
+    const startDateObj = new Date(startDate);
+    const endDateObj = new Date(endDate);
 
-      const csv = [header, ...rows].map(row => row.map(cell => `"${cell}"`).join(',')).join('\n');
-      const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
-      const link = document.createElement('a');
-      const url = URL.createObjectURL(blob);
-      link.setAttribute('href', url);
-      link.setAttribute('download', `billing-statements-${new Date().toISOString().split('T')[0]}.csv`);
-      link.click();
-      showNotification('✓ Billing statements exported to Excel', 'success');
-    }
+    // Filter deliveries for this billing statement
+    const billingDeliveries = deliveries.filter(d => {
+      const delDate = new Date(d.timestamp);
+      return (d.company === company || d.company_id === company) &&
+             delDate >= startDateObj &&
+             delDate <= endDateObj;
+    }).sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp));
+
+    // CSV content
+    let csv = 'EAU CURE WATER REFILLING STATION\n';
+    csv += 'F33 A. Soriano Highway, Daang Amaya, Tanza, Cavite\n';
+    csv += '(046) 437-6331\n\n';
+    csv += `Billing Statement: ${new Date(startDate).toLocaleDateString()} - ${new Date(endDate).toLocaleDateString()}\n`;
+    csv += `BILL TO: ${company}\n\n`;
+    csv += 'Date,DR #,QTY,Particulars,Unit Price,Amount\n';
+
+    let totalQty = 0;
+    let totalAmount = 0;
+
+    billingDeliveries.forEach(d => {
+      const qty = d.bottles_delivered || d.delivered || 0;
+      const unitPrice = 17; // Default, should come from company data
+      const amount = qty * unitPrice;
+      totalQty += qty;
+      totalAmount += amount;
+
+      const dateStr = new Date(d.timestamp).toLocaleDateString();
+      csv += `${dateStr},${d.dr_number || ''},${qty},5 gal round,${unitPrice},${amount}\n`;
+    });
+
+    csv += `\nTOTAL,${totalQty},5 gal round,,${totalAmount}\n`;
+    csv += `\nPREPARED BY:\n\n`;
+
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement('a');
+    const url = URL.createObjectURL(blob);
+    link.setAttribute('href', url);
+    link.setAttribute('download', `${company}-billing-${new Date(startDate).toISOString().split('T')[0]}.csv`);
+    link.click();
+    showNotification('✓ Billing statement exported to Excel', 'success');
   } catch (error) {
     console.error('Export error:', error);
     showNotification('Error exporting to Excel', 'error');
   }
-});
+}
 
-document.getElementById('exportBillingPdfBtn')?.addEventListener('click', async () => {
+async function exportBillingPdf(billingId, company, startDate, endDate) {
   try {
-    const response = await fetch('/api/billing-statements', { headers: getHeaders() });
-    if (response.ok) {
-      const billings = await response.json();
+    const deliveriesResponse = await fetch('/api/deliveries', { headers: getHeaders() });
+    const deliveries = deliveriesResponse.ok ? await deliveriesResponse.json() : [];
 
-      let html = `
-        <html>
-          <head>
-            <style>
-              body { font-family: Arial, sans-serif; margin: 20px; }
-              h1 { color: #667eea; text-align: center; }
-              table { width: 100%; border-collapse: collapse; margin-top: 20px; }
-              th, td { border: 1px solid #ddd; padding: 12px; text-align: left; }
-              th { background-color: #667eea; color: white; font-weight: bold; }
-              tr:nth-child(even) { background-color: #f9f9f9; }
-              .amount { text-align: right; font-weight: bold; }
-              .status { padding: 6px 12px; border-radius: 20px; display: inline-block; }
-              .status-paid { background-color: #d4edda; color: #155724; }
-              .status-unpaid { background-color: #f8d7da; color: #721c24; }
-              .footer { margin-top: 20px; text-align: center; color: #999; font-size: 12px; }
-            </style>
-          </head>
-          <body>
-            <h1>Billing Statements Report</h1>
-            <p style="text-align: center; color: #666;">Generated on ${new Date().toLocaleString()}</p>
-            <table>
-              <thead>
-                <tr>
-                  <th>Company</th>
-                  <th>Start Date</th>
-                  <th>End Date</th>
-                  <th>Total Amount (₱)</th>
-                  <th>Status</th>
-                  <th>Created Date</th>
-                </tr>
-              </thead>
-              <tbody>
+    const startDateObj = new Date(startDate);
+    const endDateObj = new Date(endDate);
+
+    // Filter deliveries for this billing statement
+    const billingDeliveries = deliveries.filter(d => {
+      const delDate = new Date(d.timestamp);
+      return (d.company === company || d.company_id === company) &&
+             delDate >= startDateObj &&
+             delDate <= endDateObj;
+    }).sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp));
+
+    let totalQty = 0;
+    let totalAmount = 0;
+    let tableRows = '';
+
+    billingDeliveries.forEach(d => {
+      const qty = d.bottles_delivered || d.delivered || 0;
+      const unitPrice = 17; // Default
+      const amount = qty * unitPrice;
+      totalQty += qty;
+      totalAmount += amount;
+
+      const dateStr = new Date(d.timestamp).toLocaleDateString('en-US', { year: 'numeric', month: '2-digit', day: '2-digit' });
+      tableRows += `
+        <tr>
+          <td>${dateStr}</td>
+          <td>${d.dr_number || ''}</td>
+          <td style="text-align: center;">${qty}</td>
+          <td>5 gal round</td>
+          <td style="text-align: right;">${unitPrice.toFixed(2)}</td>
+          <td style="text-align: right;">${amount.toLocaleString('en-US', { minimumFractionDigits: 2 })}</td>
+        </tr>
       `;
+    });
 
-      billings.forEach(b => {
-        const status = b.is_paid || b.paid ? 'Paid' : 'Unpaid';
-        const statusClass = (b.is_paid || b.paid) ? 'status-paid' : 'status-unpaid';
-        html += `
-          <tr>
-            <td>${b.company_name || b.company || ''}</td>
-            <td>${b.start_date ? new Date(b.start_date).toLocaleDateString() : ''}</td>
-            <td>${b.end_date ? new Date(b.end_date).toLocaleDateString() : ''}</td>
-            <td class="amount">₱${parseFloat(b.total_amount || 0).toFixed(2)}</td>
-            <td><span class="status ${statusClass}">${status}</span></td>
-            <td>${b.created_date ? new Date(b.created_date).toLocaleDateString() : ''}</td>
-          </tr>
-        `;
-      });
+    const startDateStr = new Date(startDate).toLocaleDateString('en-US', { year: 'numeric', month: '2-digit', day: '2-digit' });
+    const endDateStr = new Date(endDate).toLocaleDateString('en-US', { year: 'numeric', month: '2-digit', day: '2-digit' });
 
-      html += `
-              </tbody>
-            </table>
-            <div class="footer">
-              <p>Eau Cure - Water Station Delivery Tracker</p>
+    let html = `
+      <html>
+        <head>
+          <style>
+            body { font-family: Arial, sans-serif; margin: 40px; color: #333; }
+            .header { text-align: center; margin-bottom: 30px; }
+            .company-name { font-size: 16px; font-weight: bold; margin-bottom: 5px; }
+            .company-info { font-size: 12px; color: #666; }
+            .statement-header { display: flex; justify-content: space-between; margin-bottom: 30px; align-items: flex-start; }
+            .statement-title { font-size: 20px; font-weight: bold; color: #d32f2f; }
+            .date-range { font-size: 14px; text-align: right; }
+            .bill-to { margin-bottom: 20px; }
+            .bill-to-label { font-weight: bold; }
+            .bill-to-name { font-weight: bold; font-size: 14px; }
+            table { width: 100%; border-collapse: collapse; margin-bottom: 20px; }
+            th { background-color: white; border-bottom: 2px solid #333; padding: 12px; text-align: left; font-weight: bold; }
+            td { padding: 10px 12px; border-bottom: 1px solid #ddd; }
+            .total-row { background-color: #fff; border-top: 2px solid #d32f2f; border-bottom: 2px solid #d32f2f; font-weight: bold; color: #d32f2f; }
+            .total-row td { padding: 12px; }
+            .footer { margin-top: 40px; font-size: 12px; }
+            .prepared-by { margin-bottom: 40px; }
+            .signature-line { border-top: 1px solid #333; width: 300px; margin-top: 40px; }
+          </style>
+        </head>
+        <body>
+          <div class="header">
+            <div class="company-name">EAU CURE WATER REFILLING STATION</div>
+            <div class="company-info">F33 A. Soriano Highway, Daang Amaya, Tanza, Cavite</div>
+            <div class="company-info">(046) 437-6331</div>
+          </div>
+
+          <div class="statement-header">
+            <div class="statement-title">Billing Statement</div>
+            <div class="date-range">${startDateStr} - ${endDateStr}</div>
+          </div>
+
+          <div class="bill-to">
+            <span class="bill-to-label">BILL TO:</span>
+            <span class="bill-to-name">${company}</span>
+          </div>
+
+          <table>
+            <thead>
+              <tr>
+                <th>Date</th>
+                <th>DR #</th>
+                <th>QTY</th>
+                <th>Particulars</th>
+                <th>Unit Price</th>
+                <th>Amount</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${tableRows}
+              <tr class="total-row">
+                <td></td>
+                <td></td>
+                <td style="text-align: center;">${totalQty}</td>
+                <td>5 gal round</td>
+                <td style="text-align: right;">17.00</td>
+                <td style="text-align: right;">AMOUNT: ${totalAmount.toLocaleString('en-US', { minimumFractionDigits: 2 })}</td>
+              </tr>
+            </tbody>
+          </table>
+
+          <div class="footer">
+            <div class="prepared-by">
+              <div>PREPARED BY: _________________________</div>
+              <div style="margin-top: 30px;">Original Invoices / Statement Received By:</div>
+              <div class="signature-line"></div>
+              <div style="font-size: 10px; margin-top: 5px;">(Signature Over Printed Name)</div>
             </div>
-          </body>
-        </html>
-      `;
+          </div>
+        </body>
+      </html>
+    `;
 
-      const printWindow = window.open('', '', 'height=600,width=900');
-      printWindow.document.write(html);
-      printWindow.document.close();
-      printWindow.print();
-      showNotification('✓ Billing statements ready to print/export as PDF', 'success');
-    }
+    const printWindow = window.open('', '', 'height=800,width=900');
+    printWindow.document.write(html);
+    printWindow.document.close();
+    printWindow.print();
+    showNotification('✓ Billing statement ready to print/save as PDF', 'success');
   } catch (error) {
     console.error('PDF export error:', error);
     showNotification('Error exporting to PDF', 'error');
   }
-});
+}
 
 // ============================================
 // NOTIFICATION SYSTEM
