@@ -249,7 +249,19 @@ async function loadDashboardData() {
     if (response.ok) {
       const data = await response.json();
       console.log('✓ Fetched', data.length, 'deliveries from API');
-      console.log('Latest delivery:', data[0]);
+      console.log('Latest delivery (first in list):', {
+        id: data[0]?.id,
+        company: data[0]?.company,
+        delivered: data[0]?.bottles_delivered,
+        timestamp: data[0]?.timestamp
+      });
+      // Also show the most recently added one (check for today's deliveries)
+      const today = new Date().toISOString().split('T')[0];
+      const todayDeliveries = data.filter(d => d.timestamp.split('T')[0] === today);
+      if (todayDeliveries.length > 0) {
+        console.log('Deliveries added TODAY:', todayDeliveries.length);
+        console.log('Today\'s deliveries:', todayDeliveries);
+      }
       calculateStats(data);
       await calculateEarnings(data);
       renderDeliveryChart(data);
