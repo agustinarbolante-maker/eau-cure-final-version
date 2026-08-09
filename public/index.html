@@ -66,6 +66,10 @@
           <span class="icon">💰</span>
           <span class="label">Billing</span>
         </button>
+        <button class="nav-btn" data-page="reports">
+          <span class="icon">📊</span>
+          <span class="label">Reports</span>
+        </button>
         <button class="nav-btn admin-only" data-page="settings" style="display: none;">
           <span class="icon">⚙️</span>
           <span class="label">Settings</span>
@@ -281,6 +285,50 @@
               <tr class="empty-state"><td colspan="5">No billing statements yet</td></tr>
             </tbody>
           </table>
+        </div>
+      </section>
+
+      <!-- REPORTS PAGE -->
+      <section id="reports-page" class="page-content">
+        <div class="form-section" style="max-width: 600px;">
+          <h2>Delivery Reports</h2>
+          <p style="color: #666; margin-bottom: 20px; font-size: 0.95em;">Generate delivery summary reports for a specific date range</p>
+          <form id="reportsForm">
+            <div class="form-row">
+              <div class="form-group">
+                <label>Start Date</label>
+                <input type="date" id="reportStartDate" required>
+              </div>
+              <div class="form-group">
+                <label>End Date</label>
+                <input type="date" id="reportEndDate" required>
+              </div>
+            </div>
+            <button type="submit" class="btn btn-primary" style="width: 100%; margin-top: 10px;">Generate Report</button>
+          </form>
+        </div>
+
+        <h2 style="margin-top: 40px;">Report Preview</h2>
+        <div class="table-actions">
+          <button class="btn btn-secondary btn-sm" id="exportReportExcelBtn" style="display: none;">📊 Export to Excel</button>
+          <button class="btn btn-secondary btn-sm" id="exportReportPdfBtn" style="display: none;">📄 Export to PDF</button>
+        </div>
+        <div class="table-wrapper">
+          <table id="reportTable" style="display: none;">
+            <thead>
+              <tr>
+                <th>Company</th>
+                <th>Delivered</th>
+                <th>Returned</th>
+                <th>Total Amount (₱)</th>
+              </tr>
+            </thead>
+            <tbody id="reportBody">
+            </tbody>
+          </table>
+          <div id="reportEmpty" style="text-align: center; color: #999; padding: 40px; font-style: italic;">
+            Generate a report to see delivery data
+          </div>
         </div>
       </section>
 

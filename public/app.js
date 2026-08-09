@@ -1195,6 +1195,237 @@ function showNotification(message, type = 'success') {
 }
 
 // ============================================
+// DELIVERY REPORTS
+// ============================================
+
+let currentReportData = null;
+
+document.getElementById('reportsForm')?.addEventListener('submit', async (e) => {
+  e.preventDefault();
+
+  const startDate = document.getElementById('reportStartDate').value;
+  const endDate = document.getElementById('reportEndDate').value;
+
+  if (!startDate || !endDate) {
+    showNotification('Please select both start and end dates', 'error');
+    return;
+  }
+
+  try {
+    const deliveriesResponse = await fetch('/api/deliveries', { headers: getHeaders() });
+    const deliveries = deliveriesResponse.ok ? await deliveriesResponse.json() : [];
+
+    const companiesResponse = await fetch('/api/companies/all', { headers: getHeaders() });
+    const companies = companiesResponse.ok ? await companiesResponse.json() : [];
+
+    const startDateObj = new Date(startDate);
+    const endDateObj = new Date(endDate);
+
+    // Group deliveries by company
+    const reportData = {};
+    companies.forEach(com => {
+      reportData[com.name] = {
+        id: com.id,
+        name: com.name,
+        unitPrice: parseFloat(com.unit_price) || 0,
+        delivered: 0,
+        returned: 0
+      };
+    });
+
+    // Sum deliveries within date range
+    deliveries.forEach(del => {
+      const delDate = new Date(del.timestamp);
+      if (delDate >= startDateObj && delDate <= endDateObj) {
+        const companyName = del.company || 'Unknown';
+        if (!reportData[companyName]) {
+          reportData[companyName] = {
+            name: companyName,
+            unitPrice: 0,
+            delivered: 0,
+            returned: 0
+          };
+        }
+        reportData[companyName].delivered += (del.bottles_delivered || del.delivered || 0);
+        reportData[companyName].returned += (del.bottles_returned || del.returned || 0);
+      }
+    });
+
+    currentReportData = {
+      startDate,
+      endDate,
+      data: reportData
+    };
+
+    renderReport(reportData);
+    showNotification('✓ Report generated successfully', 'success');
+  } catch (error) {
+    console.error('Error generating report:', error);
+    showNotification('Error generating report', 'error');
+  }
+});
+
+function renderReport(reportData) {
+  const tbody = document.getElementById('reportBody');
+  const table = document.getElementById('reportTable');
+  const empty = document.getElementById('reportEmpty');
+  const exportExcelBtn = document.getElementById('exportReportExcelBtn');
+  const exportPdfBtn = document.getElementById('exportReportPdfBtn');
+
+  const rows = Object.values(reportData).filter(d => d.delivered > 0 || d.returned > 0);
+
+  if (rows.length === 0) {
+    table.style.display = 'none';
+    empty.style.display = 'block';
+    exportExcelBtn.style.display = 'none';
+    exportPdfBtn.style.display = 'none';
+    return;
+  }
+
+  table.style.display = 'table';
+  empty.style.display = 'none';
+  exportExcelBtn.style.display = 'inline-block';
+  exportPdfBtn.style.display = 'inline-block';
+
+  tbody.innerHTML = rows.map(d => {
+    const totalAmount = d.delivered * d.unitPrice;
+    return `
+      <tr>
+        <td>${d.name}</td>
+        <td>${d.delivered}</td>
+        <td>${d.returned}</td>
+        <td>₱${totalAmount.toFixed(2)}</td>
+      </tr>
+    `;
+  }).join('');
+}
+
+document.getElementById('exportReportExcelBtn')?.addEventListener('click', () => {
+  if (!currentReportData) {
+    showNotification('Please generate a report first', 'error');
+    return;
+  }
+
+  const { startDate, endDate, data } = currentReportData;
+  const rows = Object.values(data).filter(d => d.delivered > 0 || d.returned > 0);
+
+  let csv = 'Delivery Report\n';
+  csv += `Date Range: ${new Date(startDate).toLocaleDateString()} - ${new Date(endDate).toLocaleDateString()}\n\n`;
+  csv += 'Company,Delivered,Returned,Total Amount\n';
+
+  let totalDelivered = 0;
+  let totalReturned = 0;
+  let grandTotal = 0;
+
+  rows.forEach(d => {
+    const amount = d.delivered * d.unitPrice;
+    totalDelivered += d.delivered;
+    totalReturned += d.returned;
+    grandTotal += amount;
+    csv += `${d.name},${d.delivered},${d.returned},${amount.toFixed(2)}\n`;
+  });
+
+  csv += `\nTOTAL,${totalDelivered},${totalReturned},${grandTotal.toFixed(2)}\n`;
+
+  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+  const link = document.createElement('a');
+  const url = URL.createObjectURL(blob);
+  link.setAttribute('href', url);
+  link.setAttribute('download', `delivery-report-${new Date(startDate).toISOString().split('T')[0]}.csv`);
+  link.click();
+  showNotification('✓ Report exported to Excel', 'success');
+});
+
+document.getElementById('exportReportPdfBtn')?.addEventListener('click', () => {
+  if (!currentReportData) {
+    showNotification('Please generate a report first', 'error');
+    return;
+  }
+
+  const { startDate, endDate, data } = currentReportData;
+  const rows = Object.values(data).filter(d => d.delivered > 0 || d.returned > 0);
+
+  const startDateStr = new Date(startDate).toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
+  const endDateStr = new Date(endDate).toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
+
+  let tableRows = '';
+  let totalDelivered = 0;
+  let totalReturned = 0;
+  let grandTotal = 0;
+
+  rows.forEach(d => {
+    const amount = d.delivered * d.unitPrice;
+    totalDelivered += d.delivered;
+    totalReturned += d.returned;
+    grandTotal += amount;
+    tableRows += `
+      <tr>
+        <td>${d.name}</td>
+        <td style="text-align: center;">${d.delivered}</td>
+        <td style="text-align: center;">${d.returned}</td>
+        <td style="text-align: right;">₱${amount.toFixed(2)}</td>
+      </tr>
+    `;
+  });
+
+  let html = `
+    <html>
+      <head>
+        <style>
+          body { font-family: Arial, sans-serif; margin: 40px; color: #333; }
+          .header { text-align: center; margin-bottom: 30px; }
+          .report-title { font-size: 18px; font-weight: bold; margin-bottom: 10px; }
+          .date-range { font-size: 14px; color: #666; }
+          table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+          th { background-color: #667eea; color: white; padding: 12px; text-align: left; font-weight: bold; }
+          td { padding: 10px 12px; border-bottom: 1px solid #ddd; }
+          tr:nth-child(even) { background-color: #f9f9f9; }
+          .total-row { background-color: #fff; border-top: 2px solid #d32f2f; border-bottom: 2px solid #d32f2f; font-weight: bold; color: #d32f2f; }
+          .footer { margin-top: 30px; text-align: center; color: #999; font-size: 12px; }
+        </style>
+      </head>
+      <body>
+        <div class="header">
+          <div class="report-title">Delivery Report</div>
+          <div class="date-range">Report Period: ${startDateStr} to ${endDateStr}</div>
+          <div style="margin-top: 10px; font-size: 12px; color: #999;">Generated on ${new Date().toLocaleString()}</div>
+        </div>
+
+        <table>
+          <thead>
+            <tr>
+              <th>Company</th>
+              <th>Delivered</th>
+              <th>Returned</th>
+              <th>Total Amount</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${tableRows}
+            <tr class="total-row">
+              <td>TOTAL</td>
+              <td style="text-align: center;">${totalDelivered}</td>
+              <td style="text-align: center;">${totalReturned}</td>
+              <td style="text-align: right;">₱${grandTotal.toFixed(2)}</td>
+            </tr>
+          </tbody>
+        </table>
+
+        <div class="footer">
+          <p>Eau Cure - Water Station Delivery Tracker</p>
+        </div>
+      </body>
+    </html>
+  `;
+
+  const printWindow = window.open('', '', 'height=800,width=900');
+  printWindow.document.write(html);
+  printWindow.document.close();
+  printWindow.print();
+  showNotification('✓ Report ready to print/save as PDF', 'success');
+});
+
+// ============================================
 // SETUP EVENT LISTENERS
 // ============================================
 
