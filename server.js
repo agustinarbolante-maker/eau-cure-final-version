@@ -300,14 +300,25 @@ app.get('/api/stats/companies', async (req, res) => {
 
 app.post('/api/deliveries', authenticateToken, async (req, res) => {
   try {
+    console.log('POST /api/deliveries received:', req.body);
+
     // Support both old and new field names
     const company_id = req.body.company_id;
-    const delivered = req.body.delivered || req.body.bottlesDelivered;
-    const returned = req.body.returned || req.body.bottlesReturned;
+    const delivered = req.body.delivered !== undefined ? req.body.delivered : req.body.bottlesDelivered;
+    const returned = req.body.returned !== undefined ? req.body.returned : req.body.bottlesReturned;
     const dr_number = req.body.dr_number || req.body.drNumber;
     const timestamp = req.body.timestamp;
 
+    console.log('Parsed values:', { company_id, delivered, returned, dr_number, timestamp });
+
+    // Allow 0 values for delivered and returned - check for undefined, not falsy
     if (!company_id || delivered === undefined || returned === undefined || !dr_number) {
+      console.log('Validation failed:', {
+        company_id_check: !company_id,
+        delivered_check: delivered === undefined,
+        returned_check: returned === undefined,
+        dr_number_check: !dr_number
+      });
       return res.status(400).json({ error: 'Missing required fields: company_id, delivered, returned, dr_number' });
     }
 
