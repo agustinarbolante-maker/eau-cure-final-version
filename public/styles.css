@@ -649,6 +649,17 @@ tbody tr:last-child td {
   }
 }
 
+@keyframes slideIn {
+  from {
+    transform: translateX(400px);
+    opacity: 0;
+  }
+  to {
+    transform: translateX(0);
+    opacity: 1;
+  }
+}
+
 .modal-header {
   display: flex;
   justify-content: space-between;

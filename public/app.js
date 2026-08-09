@@ -505,14 +505,26 @@ function selectDeliveryDate(dateStr) {
 document.getElementById('deliveryForm')?.addEventListener('submit', async (e) => {
   e.preventDefault();
 
+  const companyId = document.getElementById('delCompany').value;
   const date = document.getElementById('delDate').value;
-  const timestamp = date ? new Date(date).toISOString() : new Date().toISOString();
+
+  if (!companyId) {
+    showNotification('Please select a company', 'error');
+    return;
+  }
+
+  if (!date) {
+    showNotification('Please select a delivery date', 'error');
+    return;
+  }
+
+  const timestamp = new Date(date).toISOString();
 
   const data = {
-    company_id: parseInt(document.getElementById('delCompany').value),
-    delivered: parseInt(document.getElementById('delDelivered').value),
-    returned: parseInt(document.getElementById('delReturned').value),
-    dr_number: document.getElementById('delDRNumber').value,
+    company_id: parseInt(companyId),
+    delivered: parseInt(document.getElementById('delDelivered').value) || 0,
+    returned: parseInt(document.getElementById('delReturned').value) || 0,
+    dr_number: document.getElementById('delDRNumber').value || 'N/A',
     notes: document.getElementById('delNotes').value,
     timestamp: timestamp
   };
@@ -525,12 +537,18 @@ document.getElementById('deliveryForm')?.addEventListener('submit', async (e) =>
     });
 
     if (response.ok) {
+      const result = await response.json();
+      showNotification('✓ Delivery added successfully!', 'success');
       document.getElementById('deliveryForm').reset();
       loadDeliveries();
       loadDashboardData();
+    } else {
+      const error = await response.json().catch(() => ({}));
+      showNotification(error.message || 'Error adding delivery', 'error');
     }
   } catch (error) {
     console.error('Error adding delivery:', error);
+    showNotification('Connection error - could not add delivery', 'error');
   }
 });
 
@@ -618,11 +636,16 @@ document.getElementById('companyForm')?.addEventListener('submit', async (e) => 
     });
 
     if (response.ok) {
+      showNotification('✓ Company added successfully!', 'success');
       document.getElementById('companyForm').reset();
       loadCompanies();
+    } else {
+      const error = await response.json().catch(() => ({}));
+      showNotification(error.message || 'Error adding company', 'error');
     }
   } catch (error) {
     console.error('Error adding company:', error);
+    showNotification('Connection error - could not add company', 'error');
   }
 });
 
@@ -719,7 +742,7 @@ document.getElementById('billingForm')?.addEventListener('submit', async (e) => 
   const bilMonth = document.getElementById('bilMonth').value;
 
   if (!companyId || !bilMonth) {
-    alert('Please select company and month');
+    showNotification('Please select company and month', 'error');
     return;
   }
 
@@ -763,15 +786,16 @@ document.getElementById('billingForm')?.addEventListener('submit', async (e) => 
     });
 
     if (response.ok) {
-      alert(`Billing created!\n${company.name} - ${bilMonth}\nTotal: ₱${totalAmount.toFixed(2)} (${totalBottles} bottles × ₱${unitPrice.toFixed(2)})`);
+      showNotification(`✓ Billing created! ${company.name} - ₱${totalAmount.toFixed(2)}`, 'success');
       document.getElementById('billingForm').reset();
       loadBillings();
     } else {
-      alert('Error creating billing statement');
+      const error = await response.json().catch(() => ({}));
+      showNotification(error.message || 'Error creating billing statement', 'error');
     }
   } catch (error) {
     console.error('Error creating billing:', error);
-    alert('Error creating billing statement');
+    showNotification('Connection error - could not create billing statement', 'error');
   }
 });
 
@@ -946,6 +970,28 @@ document.getElementById('backupBtn')?.addEventListener('click', async () => {
     console.error('Backup error:', error);
   }
 });
+
+// ============================================
+// NOTIFICATION SYSTEM
+// ============================================
+
+function showNotification(message, type = 'success') {
+  const notification = document.getElementById('notification');
+  notification.textContent = message;
+  notification.style.display = 'block';
+
+  if (type === 'success') {
+    notification.style.backgroundColor = '#28a745';
+  } else if (type === 'error') {
+    notification.style.backgroundColor = '#dc3545';
+  } else if (type === 'info') {
+    notification.style.backgroundColor = '#667eea';
+  }
+
+  setTimeout(() => {
+    notification.style.display = 'none';
+  }, 3000);
+}
 
 // ============================================
 // SETUP EVENT LISTENERS
