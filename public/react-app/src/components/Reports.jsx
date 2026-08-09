@@ -58,6 +58,7 @@ export function Reports() {
           <a href="/deliveries">Deliveries</a>
           <a href="/billing">Billing</a>
           <a href="/reports" className="active">Reports</a>
+          {['owner', 'software_engineer', 'admin'].includes(user?.role) && <a href="/companies">Companies</a>}
           {['owner', 'software_engineer'].includes(user?.role) && <a href="/settings">Settings</a>}
         </div>
 

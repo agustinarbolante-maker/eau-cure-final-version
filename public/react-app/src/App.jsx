@@ -7,9 +7,7 @@ import { Dashboard } from './components/Dashboard';
 import { Deliveries } from './components/Deliveries';
 import { Billing } from './components/Billing';
 import { Reports } from './components/Reports';
-import { Companies } from './components/Companies';
 import { Settings } from './components/Settings';
-import './styles/design-system.css';
 import './App.css';
 
 function App() {
@@ -51,15 +49,6 @@ function App() {
             element={
               <ProtectedRoute>
                 <Reports />
-              </ProtectedRoute>
-            }
-          />
-
-          <Route
-            path="/companies"
-            element={
-              <ProtectedRoute requiredRoles={['owner', 'software_engineer', 'admin']}>
-                <Companies />
               </ProtectedRoute>
             }
           />
