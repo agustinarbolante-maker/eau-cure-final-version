@@ -247,6 +247,7 @@ async function loadDashboardData() {
       const data = await response.json();
       console.log('Dashboard loaded with', data.length, 'deliveries');
       calculateStats(data);
+      await calculateEarnings(data);
       renderDeliveryChart(data);
     } else {
       console.error('Dashboard data fetch failed:', response.status);
@@ -277,14 +278,90 @@ function calculateStats(deliveries) {
 
   deliveries.forEach(del => {
     stats.totalDeliveries++;
-    stats.totalDelivered += del.delivered;
-    stats.totalReturned += del.returned;
+    // FIX: Use bottles_delivered/bottles_returned (correct API field names)
+    stats.totalDelivered += (del.bottles_delivered || del.delivered || 0);
+    stats.totalReturned += (del.bottles_returned || del.returned || 0);
   });
 
   document.getElementById('statDeliveries').textContent = stats.totalDeliveries;
   document.getElementById('statDelivered').textContent = stats.totalDelivered;
   document.getElementById('statReturned').textContent = stats.totalReturned;
   document.getElementById('statNet').textContent = stats.totalDelivered - stats.totalReturned;
+}
+
+async function calculateEarnings(deliveries) {
+  try {
+    // Get companies to look up unit prices
+    const companiesResponse = await fetch('/api/companies/all', { headers: getHeaders() });
+    const companies = companiesResponse.ok ? await companiesResponse.json() : [];
+
+    // Create company map for quick lookup
+    const companyMap = {};
+    companies.forEach(c => {
+      companyMap[c.name] = { unitPrice: parseFloat(c.unit_price) || 0 };
+    });
+
+    // Helper function to calculate earnings for a date range
+    function earningsForRange(start, end) {
+      const startUTC = new Date(start);
+      startUTC.setHours(0, 0, 0, 0);
+      const endUTC = new Date(end);
+      endUTC.setHours(23, 59, 59, 999);
+
+      let total = 0;
+      deliveries.forEach(del => {
+        const delDate = new Date(del.timestamp);
+        if (delDate >= startUTC && delDate <= endUTC) {
+          const qty = del.bottles_delivered || del.delivered || 0;
+          const unitPrice = companyMap[del.company]?.unitPrice || 0;
+          total += qty * unitPrice;
+        }
+      });
+      return total;
+    }
+
+    const today = new Date();
+    const todayStr = today.toISOString().split('T')[0];
+
+    // Today
+    const earningsToday = earningsForRange(todayStr, todayStr);
+    document.getElementById('earningsToday').textContent = `₱${earningsToday.toFixed(2)}`;
+
+    // This Week (Sunday to today)
+    const weekStart = new Date(today);
+    const dayOfWeek = today.getDay();
+    weekStart.setDate(today.getDate() - dayOfWeek);
+    const weekStartStr = weekStart.toISOString().split('T')[0];
+    const earningsWeek = earningsForRange(weekStartStr, todayStr);
+    document.getElementById('earningsWeek').textContent = `₱${earningsWeek.toFixed(2)}`;
+
+    // Last Week
+    const lastWeekEnd = new Date(weekStart);
+    lastWeekEnd.setDate(weekStart.getDate() - 1);
+    const lastWeekStart = new Date(lastWeekEnd);
+    lastWeekStart.setDate(lastWeekEnd.getDate() - 6);
+    const lastWeekStartStr = lastWeekStart.toISOString().split('T')[0];
+    const lastWeekEndStr = lastWeekEnd.toISOString().split('T')[0];
+    const earningsLastWeek = earningsForRange(lastWeekStartStr, lastWeekEndStr);
+    document.getElementById('earningsLastWeek').textContent = `₱${earningsLastWeek.toFixed(2)}`;
+
+    // This Month
+    const monthStart = new Date(today.getFullYear(), today.getMonth(), 1);
+    const monthStartStr = monthStart.toISOString().split('T')[0];
+    const earningsMonth = earningsForRange(monthStartStr, todayStr);
+    document.getElementById('earningsMonth').textContent = `₱${earningsMonth.toFixed(2)}`;
+
+    // All Time
+    let earningsAllTime = 0;
+    deliveries.forEach(del => {
+      const qty = del.bottles_delivered || del.delivered || 0;
+      const unitPrice = companyMap[del.company]?.unitPrice || 0;
+      earningsAllTime += qty * unitPrice;
+    });
+    document.getElementById('earningsAllTime').textContent = `₱${earningsAllTime.toFixed(2)}`;
+  } catch (error) {
+    console.error('Error calculating earnings:', error);
+  }
 }
 
 function renderDeliveryChart(deliveries) {
@@ -299,7 +376,10 @@ function renderDeliveryChart(deliveries) {
   deliveries.forEach(del => {
     const date = new Date(del.timestamp).toISOString().split('T')[0];
     if (data[date] !== undefined) {
-      data[date] += del.delivered - del.returned;
+      // FIX: Use bottles_delivered/bottles_returned (correct API field names)
+      const delivered = del.bottles_delivered || del.delivered || 0;
+      const returned = del.bottles_returned || del.returned || 0;
+      data[date] += delivered - returned;
     }
   });
 
