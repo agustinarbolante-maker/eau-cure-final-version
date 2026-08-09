@@ -22,6 +22,46 @@ body {
   line-height: 1.6;
 }
 
+.page {
+  min-height: 100vh;
+}
+
+/* LOGIN PAGE */
+.login-page {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 100vh;
+  background: linear-gradient(135deg, var(--primary-color) 0%, var(--primary-dark) 100%);
+  padding: 20px;
+}
+
+.login-container {
+  width: 100%;
+  max-width: 400px;
+}
+
+.login-card {
+  background: white;
+  padding: 40px;
+  border-radius: 8px;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+}
+
+.login-card h1 {
+  color: var(--primary-color);
+  font-size: 2.5em;
+  margin-bottom: 10px;
+  text-align: center;
+}
+
+.login-card p {
+  text-align: center;
+  color: #666;
+  margin-bottom: 30px;
+}
+
+/* APP PAGE */
 .container {
   max-width: 1200px;
   margin: 0 auto;
@@ -30,7 +70,7 @@ body {
 
 header {
   text-align: center;
-  margin-bottom: 40px;
+  margin-bottom: 30px;
   padding: 30px 20px;
   background: linear-gradient(135deg, var(--primary-color) 0%, var(--primary-dark) 100%);
   color: white;
@@ -46,6 +86,48 @@ header h1 {
 header p {
   font-size: 1.1em;
   opacity: 0.95;
+}
+
+/* TABS */
+.tabs {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 30px;
+  border-bottom: 2px solid var(--border-color);
+  flex-wrap: wrap;
+}
+
+.tab-btn {
+  padding: 12px 20px;
+  background: white;
+  border: none;
+  border-bottom: 3px solid transparent;
+  cursor: pointer;
+  font-weight: 600;
+  color: var(--text-color);
+  transition: all 0.3s;
+}
+
+.tab-btn:hover {
+  color: var(--primary-color);
+}
+
+.tab-btn.active {
+  color: var(--primary-color);
+  border-bottom-color: var(--primary-color);
+}
+
+.admin-only.admin-hidden {
+  display: none;
+}
+
+/* TAB CONTENT */
+.tab-content {
+  display: none;
+}
+
+.tab-content.active {
+  display: block;
 }
 
 main {
@@ -80,19 +162,29 @@ h2 {
   color: var(--text-color);
 }
 
-.form-group input {
+.form-group input,
+.form-group select,
+.form-group textarea {
   width: 100%;
   padding: 12px;
   border: 1px solid var(--border-color);
   border-radius: 4px;
+  font-family: inherit;
   font-size: 1em;
   transition: border-color 0.3s, box-shadow 0.3s;
 }
 
-.form-group input:focus {
+.form-group input:focus,
+.form-group select:focus,
+.form-group textarea:focus {
   outline: none;
   border-color: var(--primary-color);
   box-shadow: 0 0 5px rgba(33, 150, 243, 0.3);
+}
+
+.form-group textarea {
+  resize: vertical;
+  min-height: 80px;
 }
 
 .form-row {
@@ -101,6 +193,7 @@ h2 {
   gap: 20px;
 }
 
+/* BUTTONS */
 .btn {
   padding: 12px 24px;
   border: none;
@@ -136,16 +229,6 @@ h2 {
   font-size: 0.9em;
 }
 
-.btn-edit {
-  background-color: var(--primary-color);
-  color: white;
-  margin-right: 8px;
-}
-
-.btn-edit:hover {
-  background-color: var(--primary-dark);
-}
-
 .btn-delete {
   background-color: var(--danger-color);
   color: white;
@@ -155,6 +238,7 @@ h2 {
   background-color: #d32f2f;
 }
 
+/* TABLES */
 .table-wrapper {
   overflow-x: auto;
 }
@@ -189,8 +273,7 @@ tbody tr:last-child td {
   border-bottom: none;
 }
 
-.empty-state,
-.error-state {
+.empty-state {
   text-align: center;
   color: #999;
   font-style: italic;
@@ -198,9 +281,11 @@ tbody tr:last-child td {
 
 .actions {
   white-space: nowrap;
+  display: flex;
+  gap: 8px;
 }
 
-/* Modal Styles */
+/* MODALS */
 .modal {
   display: none;
   position: fixed;
@@ -209,39 +294,26 @@ tbody tr:last-child td {
   top: 0;
   width: 100%;
   height: 100%;
+  overflow: auto;
   background-color: rgba(0, 0, 0, 0.5);
-  animation: fadeIn 0.3s;
 }
 
-@keyframes fadeIn {
-  from {
-    opacity: 0;
-  }
-  to {
-    opacity: 1;
-  }
+.modal.show {
+  display: block;
 }
 
 .modal-content {
   background-color: white;
-  margin: 10% auto;
-  padding: 30px;
+  margin: 5% auto;
+  padding: 20px;
   border-radius: 8px;
-  width: 90%;
+  width: 95%;
   max-width: 500px;
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.2);
-  animation: slideIn 0.3s;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
 }
 
-@keyframes slideIn {
-  from {
-    transform: translateY(-50px);
-    opacity: 0;
-  }
-  to {
-    transform: translateY(0);
-    opacity: 1;
-  }
+.modal-content h2 {
+  margin-top: 0;
 }
 
 .close {
@@ -253,70 +325,90 @@ tbody tr:last-child td {
   transition: color 0.3s;
 }
 
-.close:hover,
-.close:focus {
-  color: var(--text-color);
-}
-
-.modal h2 {
-  margin-bottom: 20px;
-  border-bottom: 2px solid var(--primary-color);
-  padding-bottom: 10px;
+.close:hover {
+  color: black;
 }
 
 .modal-actions {
   display: flex;
   gap: 10px;
+  justify-content: flex-end;
   margin-top: 20px;
+  padding-top: 20px;
+  border-top: 1px solid var(--border-color);
 }
 
 .modal-actions button {
   flex: 1;
+  max-width: 150px;
 }
 
-/* Responsive Design */
+/* STATS GRID */
+.stats-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 20px;
+  margin-bottom: 30px;
+}
+
+.stat-card {
+  background: white;
+  padding: 20px;
+  border-radius: 8px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  text-align: center;
+  border-left: 4px solid var(--primary-color);
+}
+
+.stat-card h3 {
+  font-size: 0.9em;
+  color: #666;
+  margin-bottom: 10px;
+  text-transform: uppercase;
+}
+
+.stat-value {
+  font-size: 2.5em;
+  font-weight: bold;
+  color: var(--primary-color);
+}
+
+/* STATUS BADGES */
+.badge {
+  display: inline-block;
+  padding: 6px 12px;
+  border-radius: 20px;
+  font-size: 0.85em;
+  font-weight: 600;
+}
+
+.badge-success {
+  background-color: #d4edda;
+  color: #155724;
+}
+
+.badge-warning {
+  background-color: #fff3cd;
+  color: #856404;
+}
+
+.badge-danger {
+  background-color: #f8d7da;
+  color: #721c24;
+}
+
+/* RESPONSIVE */
 @media (max-width: 768px) {
-  .container {
-    padding: 15px;
-  }
-
-  header h1 {
-    font-size: 1.8em;
-  }
-
-  header p {
-    font-size: 1em;
-  }
-
   .form-row {
     grid-template-columns: 1fr;
   }
 
-  th,
-  td {
-    padding: 10px;
-    font-size: 0.9em;
-  }
-
-  .btn-sm {
-    padding: 6px 12px;
-    font-size: 0.8em;
-  }
-
-  .modal-content {
-    width: 95%;
-    margin: 30% auto;
+  header {
     padding: 20px;
   }
 
-  table {
-    font-size: 0.9em;
-  }
-}
-
-@media (max-width: 480px) {
   header h1 {
-    font-size: 1.4em;
+    font-size: 1.8em;
   }
 
   h2 {
@@ -328,48 +420,68 @@ tbody tr:last-child td {
     padding: 15px;
   }
 
-  th,
-  td {
-    padding: 8px;
-  }
-
-  .actions {
-    display: flex;
-    gap: 5px;
+  th, td {
+    padding: 10px;
   }
 
   .btn-sm {
-    padding: 5px 8px;
-    font-size: 0.75em;
+    padding: 6px 10px;
+    font-size: 0.8em;
+  }
+
+  table {
+    font-size: 0.9em;
+  }
+
+  .actions {
+    flex-direction: column;
+  }
+
+  .modal-content {
+    width: 90%;
+    margin: 20% auto;
+  }
+
+  .tabs {
+    gap: 5px;
+  }
+
+  .tab-btn {
+    padding: 10px 15px;
+    font-size: 0.9em;
   }
 }
 
-/* Login Page Styling */
-.login-page {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  min-height: 100vh;
-  background: linear-gradient(135deg, var(--primary-color) 0%, var(--primary-dark) 100%);
-  padding: 20px;
-}
+@media (max-width: 480px) {
+  header h1 {
+    font-size: 1.5em;
+  }
 
-.login-container {
-  width: 100%;
-  max-width: 400px;
-}
+  .form-group input,
+  .form-group select,
+  .form-group textarea {
+    padding: 10px;
+  }
 
-.login-card {
-  background: white;
-  padding: 40px;
-  border-radius: 8px;
-  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
-}
+  .container {
+    padding: 10px;
+  }
 
-.login-card h1 {
-  color: var(--primary-color);
-}
+  .modal-content {
+    margin: 30% auto;
+    padding: 15px;
+  }
 
-.app-page {
-  display: block;
+  header {
+    display: block;
+    text-align: center;
+  }
+
+  .modal-actions {
+    flex-direction: column;
+  }
+
+  .modal-actions button {
+    max-width: none;
+  }
 }
