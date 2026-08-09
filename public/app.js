@@ -1533,7 +1533,7 @@ function renderDeliveryReport(reportData) {
   container.style.display = 'block';
   empty.style.display = 'none';
 
-  // Render body rows - Company | DR # | Delivered | Returned | Unit Price | Earnings
+  // Render body rows - Company | DR # | Delivered | Returned | Unit Price | Earnings | Actions
   tbody.innerHTML = reportData.deliveries.map(del => {
     return `
       <tr style="border-bottom: 1px solid #ddd;">
@@ -1543,6 +1543,7 @@ function renderDeliveryReport(reportData) {
         <td style="padding: 8px; border: 1px solid #ddd; text-align: center;">${del.returns}</td>
         <td style="padding: 8px; border: 1px solid #ddd; text-align: right;">₱${del.unitPrice.toFixed(2)}</td>
         <td style="padding: 8px; border: 1px solid #ddd; text-align: right; color: #28a745; font-weight: bold;">₱${del.earnings.toFixed(2)}</td>
+        <td style="padding: 8px; border: 1px solid #ddd; text-align: center;"><button class="btn btn-danger btn-sm" onclick="deleteDelivery(${del.id})">Delete</button></td>
       </tr>
     `;
   }).join('');
@@ -1813,7 +1814,7 @@ function renderDeliveryHistory(deliveries, label, startDate, endDate) {
   }
   dateRangeEl.textContent = dateRangeText;
 
-  // Company | DR # | Delivered | Returned | Unit Price | Earnings
+  // Company | DR # | Delivered | Returned | Unit Price | Earnings | Actions
   tbody.innerHTML = deliveries.map(del => `
     <tr style="border-bottom: 1px solid #ddd;">
       <td style="padding: 8px; border: 1px solid #ddd;">${del.company}</td>
@@ -1822,6 +1823,7 @@ function renderDeliveryHistory(deliveries, label, startDate, endDate) {
       <td style="padding: 8px; border: 1px solid #ddd; text-align: center;">${del.returns}</td>
       <td style="padding: 8px; border: 1px solid #ddd; text-align: right;">₱${del.unitPrice.toFixed(2)}</td>
       <td style="padding: 8px; border: 1px solid #ddd; text-align: right; color: #28a745; font-weight: bold;">₱${del.earnings.toFixed(2)}</td>
+      <td style="padding: 8px; border: 1px solid #ddd; text-align: center;"><button class="btn btn-danger btn-sm" onclick="deleteDelivery(${del.id})">Delete</button></td>
     </tr>
   `).join('');
 }
