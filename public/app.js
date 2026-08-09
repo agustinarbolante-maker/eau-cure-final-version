@@ -773,19 +773,31 @@ document.getElementById('billingForm')?.addEventListener('submit', async (e) => 
       totalAmount: totalAmount
     };
 
+    console.log('Sending billing data:', data);
+
     const response = await fetch('/api/billing-statements', {
       method: 'POST',
       headers: getHeaders(),
       body: JSON.stringify(data)
     });
 
+    console.log('Billing response status:', response.status);
+
     if (response.ok) {
       showNotification(`✓ Billing created! ${company.name} - ₱${totalAmount.toFixed(2)} (${totalBottles} bottles)`, 'success');
       document.getElementById('billingForm').reset();
       loadBillings();
     } else {
-      const error = await response.json().catch(() => ({}));
-      showNotification(error.message || 'Error creating billing statement', 'error');
+      const errorText = await response.text();
+      let errorMsg = 'Error creating billing statement';
+      try {
+        const errorJson = JSON.parse(errorText);
+        errorMsg = errorJson.error || errorJson.message || errorMsg;
+      } catch (e) {
+        errorMsg = errorText || errorMsg;
+      }
+      console.error('Billing API Error:', errorMsg);
+      showNotification(errorMsg, 'error');
     }
   } catch (error) {
     console.error('Error creating billing:', error);
