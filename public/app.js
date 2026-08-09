@@ -238,14 +238,18 @@ async function loadBillings() {
 
 async function loadDashboardData() {
   try {
+    console.log('loadDashboardData() called');
     // Always fetch fresh data from server
     const response = await fetch('/api/deliveries', {
       headers: getHeaders(),
       cache: 'no-cache'
     });
+    console.log('API response status:', response.status);
+
     if (response.ok) {
       const data = await response.json();
-      console.log('Dashboard loaded with', data.length, 'deliveries');
+      console.log('✓ Fetched', data.length, 'deliveries from API');
+      console.log('Latest delivery:', data[0]);
       calculateStats(data);
       await calculateEarnings(data);
       renderDeliveryChart(data);
@@ -638,10 +642,13 @@ document.getElementById('deliveryForm')?.addEventListener('submit', async (e) =>
 
     if (response.ok) {
       const result = await response.json();
+      console.log('✓ Delivery added to DB:', result);
       showNotification('✓ Delivery added successfully!', 'success');
       document.getElementById('deliveryForm').reset();
-      loadDeliveries();
-      loadDashboardData();
+      console.log('Calling loadDeliveries...');
+      await loadDeliveries();
+      console.log('Calling loadDashboardData...');
+      await loadDashboardData();
     } else {
       const error = await response.json().catch(() => ({}));
       showNotification(error.message || 'Error adding delivery', 'error');
