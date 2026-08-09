@@ -125,36 +125,6 @@
           </div>
         </div>
 
-        <!-- Filters & Calendar -->
-        <div class="dashboard-grid">
-          <!-- Filters Section -->
-          <div class="filter-section">
-            <h2>Filter Records</h2>
-            <div class="form-group">
-              <label>Company</label>
-              <select id="dashCompanyFilter">
-                <option value="">All Companies</option>
-              </select>
-            </div>
-            <div class="form-row">
-              <div class="form-group">
-                <label>From Date</label>
-                <input type="date" id="dashFromDate">
-              </div>
-              <div class="form-group">
-                <label>To Date</label>
-                <input type="date" id="dashToDate">
-              </div>
-            </div>
-            <button class="btn btn-primary" id="dashFilterBtn">Apply Filters</button>
-          </div>
-
-          <!-- Calendar Section -->
-          <div class="calendar-section">
-            <h2>Calendar</h2>
-            <div id="calendar" class="calendar"></div>
-          </div>
-        </div>
       </section>
 
       <!-- DELIVERIES PAGE -->
@@ -170,6 +140,16 @@
               </div>
               <div class="form-row">
                 <div class="form-group">
+                  <label>Date</label>
+                  <input type="date" id="delDate" required>
+                </div>
+                <div class="form-group">
+                  <label>DR Number</label>
+                  <input type="text" id="delDRNumber" placeholder="e.g., DR-001">
+                </div>
+              </div>
+              <div class="form-row">
+                <div class="form-group">
                   <label>Bottles Delivered</label>
                   <input type="number" id="delDelivered" placeholder="0" min="0" required>
                 </div>
@@ -179,15 +159,17 @@
                 </div>
               </div>
               <div class="form-group">
-                <label>DR Number</label>
-                <input type="text" id="delDRNumber" placeholder="e.g., DR-001">
-              </div>
-              <div class="form-group">
                 <label>Notes</label>
                 <textarea id="delNotes" placeholder="Additional notes"></textarea>
               </div>
               <button type="submit" class="btn btn-primary">Add Delivery</button>
             </form>
+          </div>
+
+          <!-- Calendar Section for Date Selection -->
+          <div class="calendar-section">
+            <h2>Select Delivery Date</h2>
+            <div id="deliveryCalendar" class="calendar"></div>
           </div>
         </div>
       </section>
@@ -268,15 +250,21 @@
                 <label>Company</label>
                 <select id="bilCompany" required></select>
               </div>
-              <div class="form-row">
-                <div class="form-group">
-                  <label>Billing Month</label>
-                  <input type="month" id="bilMonth" required>
-                </div>
-                <div class="form-group">
-                  <label>Total Amount</label>
-                  <input type="number" id="bilAmount" placeholder="0.00" step="0.01" min="0" required>
-                </div>
+              <div class="form-group">
+                <label>Billing Month</label>
+                <input type="month" id="bilMonth" required>
+              </div>
+              <div class="form-group">
+                <label>Total Bottles Delivered</label>
+                <input type="number" id="bilBottles" placeholder="0" min="0" disabled>
+              </div>
+              <div class="form-group">
+                <label>Unit Price (₱)</label>
+                <input type="number" id="bilUnitPrice" placeholder="0.00" step="0.01" min="0" disabled>
+              </div>
+              <div class="form-group" style="background-color: #f0f0f0; padding: 16px; border-radius: 6px;">
+                <label style="font-weight: bold; font-size: 1.1em;">Total Amount (₱)</label>
+                <input type="number" id="bilAmount" placeholder="0.00" step="0.01" min="0" disabled style="font-size: 1.2em; font-weight: bold;">
               </div>
               <button type="submit" class="btn btn-primary">Create Billing</button>
             </form>

@@ -150,13 +150,16 @@ function switchPage(page) {
 
     if (page === 'dashboard') {
       loadDashboardData();
-      renderCalendar();
+    } else if (page === 'deliveries') {
+      renderDeliveryCalendar();
+      loadCompanies();
     } else if (page === 'records') {
       loadDeliveries();
     } else if (page === 'companies') {
       loadCompanies();
     } else if (page === 'billing') {
       loadBillings();
+      loadCompanies();
     } else if (page === 'settings') {
       loadUsers();
     }
@@ -438,8 +441,8 @@ function populateCompanySelects(companies) {
 // CALENDAR
 // ============================================
 
-function renderCalendar() {
-  const calendarDiv = document.getElementById('calendar');
+function renderDeliveryCalendar() {
+  const calendarDiv = document.getElementById('deliveryCalendar');
   if (!calendarDiv) return;
 
   const today = new Date();
@@ -468,11 +471,16 @@ function renderCalendar() {
   }
 
   for (let day = 1; day <= daysInMonth; day++) {
-    html += `<div class="calendar-day">${day}</div>`;
+    const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+    html += `<div class="calendar-day" onclick="selectDeliveryDate('${dateStr}')" style="cursor: pointer;">${day}</div>`;
   }
 
   html += '</div>';
   calendarDiv.innerHTML = html;
+}
+
+function selectDeliveryDate(dateStr) {
+  document.getElementById('delDate').value = dateStr;
 }
 
 // ============================================
@@ -685,6 +693,53 @@ async function showCompanyStats(id) {
 // CRUD OPERATIONS - BILLING
 // ============================================
 
+async function calculateBillingAmount() {
+  const companyId = parseInt(document.getElementById('bilCompany').value);
+  const bilMonth = document.getElementById('bilMonth').value;
+
+  if (!companyId || !bilMonth) {
+    document.getElementById('bilBottles').value = '0';
+    document.getElementById('bilUnitPrice').value = '0.00';
+    document.getElementById('bilAmount').value = '0.00';
+    return;
+  }
+
+  try {
+    // Get company details
+    const companyResponse = await fetch(`/api/companies/${companyId}`, { headers: getHeaders() });
+    const company = companyResponse.ok ? await companyResponse.json() : null;
+
+    // Get all deliveries
+    const deliveriesResponse = await fetch('/api/deliveries', { headers: getHeaders() });
+    const deliveries = deliveriesResponse.ok ? await deliveriesResponse.json() : [];
+
+    // Calculate total bottles for this company in this month
+    let totalBottles = 0;
+    const [year, month] = bilMonth.split('-');
+
+    deliveries.forEach(del => {
+      const delDate = new Date(del.timestamp);
+      if (del.company_id === companyId &&
+          delDate.getFullYear() === parseInt(year) &&
+          (delDate.getMonth() + 1) === parseInt(month)) {
+        totalBottles += del.delivered;
+      }
+    });
+
+    const unitPrice = company ? parseFloat(company.unit_price) : 0;
+    const totalAmount = totalBottles * unitPrice;
+
+    document.getElementById('bilBottles').value = totalBottles;
+    document.getElementById('bilUnitPrice').value = unitPrice.toFixed(2);
+    document.getElementById('bilAmount').value = totalAmount.toFixed(2);
+  } catch (error) {
+    console.error('Error calculating billing:', error);
+  }
+}
+
+document.getElementById('bilCompany')?.addEventListener('change', calculateBillingAmount);
+document.getElementById('bilMonth')?.addEventListener('change', calculateBillingAmount);
+
 document.getElementById('billingForm')?.addEventListener('submit', async (e) => {
   e.preventDefault();
 
@@ -704,6 +759,7 @@ document.getElementById('billingForm')?.addEventListener('submit', async (e) => 
 
     if (response.ok) {
       document.getElementById('billingForm').reset();
+      document.getElementById('bilAmount').value = '0.00';
       loadBillings();
     }
   } catch (error) {
