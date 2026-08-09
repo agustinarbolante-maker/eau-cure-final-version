@@ -1,6 +1,7 @@
 const sqlite3 = require('sqlite3').verbose();
 const path = require('path');
 const fs = require('fs');
+const bcrypt = require('bcrypt');
 
 const DB_PATH = path.join(__dirname, 'data', 'water_station.db');
 const BACKUP_DIR = path.join(__dirname, 'data', 'backups');
@@ -52,7 +53,7 @@ function initDB() {
               if (err2) {
                 reject(err2);
               } else {
-                initBillingStatementsTable().then(() => createUserTable()).then(() => seedCompanies()).then(() => resolve()).catch(reject);
+                initBillingStatementsTable().then(() => createUserTable()).then(() => seedCompanies()).then(() => seedDefaultUsers()).then(() => resolve()).catch(reject);
               }
             });
           }
@@ -141,6 +142,44 @@ function seedCompanies() {
         stmt.finalize((err) => {
           if (err) reject(err);
           else resolve();
+        });
+      } else {
+        resolve();
+      }
+    });
+  });
+}
+
+function seedDefaultUsers() {
+  return new Promise((resolve, reject) => {
+    db.all("SELECT COUNT(*) as count FROM users", (err, rows) => {
+      if (err) {
+        reject(err);
+      } else if (rows[0].count === 0) {
+        // Hash password: admin123
+        bcrypt.hash('admin123', 10, (hashErr, hashedPassword) => {
+          if (hashErr) {
+            reject(hashErr);
+          } else {
+            const defaultUsers = [
+              { username: 'admin', email: 'admin@eaucure.com', password_hash: hashedPassword, role: 'admin' },
+              { username: 'agustino', email: 'agustino@eaucure.com', password_hash: hashedPassword, role: 'owner' },
+              { username: 'employee', email: 'employee@eaucure.com', password_hash: hashedPassword, role: 'software_engineer' }
+            ];
+
+            const stmt = db.prepare(
+              "INSERT OR IGNORE INTO users (username, email, password_hash, role) VALUES (?, ?, ?, ?)"
+            );
+
+            defaultUsers.forEach(u => {
+              stmt.run(u.username, u.email, u.password_hash, u.role);
+            });
+
+            stmt.finalize((err) => {
+              if (err) reject(err);
+              else resolve();
+            });
+          }
         });
       } else {
         resolve();
