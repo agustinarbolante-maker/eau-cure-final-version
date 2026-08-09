@@ -156,8 +156,9 @@ function switchPage(page) {
     } else if (page === 'records') {
       loadDeliveries();
       loadHistoryData();
-      // Initialize history tab as default
+      // Initialize history tab as default with all-time view
       showRecordsTab('history');
+      loadAllDeliveriesHistory();
     } else if (page === 'companies') {
       loadCompanies();
     } else if (page === 'billing') {
@@ -1365,7 +1366,7 @@ function renderDeliveryReport(reportData) {
   container.style.display = 'block';
   empty.style.display = 'none';
 
-  // Render body rows - SIMPLIFIED: Company | DR # | Delivered | Returned | Earnings
+  // Render body rows - Company | DR # | Delivered | Returned | Unit Price | Earnings
   tbody.innerHTML = reportData.deliveries.map(del => {
     return `
       <tr style="border-bottom: 1px solid #ddd;">
@@ -1373,6 +1374,7 @@ function renderDeliveryReport(reportData) {
         <td style="padding: 8px; border: 1px solid #ddd;">${del.dr_number || '-'}</td>
         <td style="padding: 8px; border: 1px solid #ddd; text-align: center;">${del.qty}</td>
         <td style="padding: 8px; border: 1px solid #ddd; text-align: center;">${del.returns}</td>
+        <td style="padding: 8px; border: 1px solid #ddd; text-align: right;">₱${del.unitPrice.toFixed(2)}</td>
         <td style="padding: 8px; border: 1px solid #ddd; text-align: right; color: #28a745; font-weight: bold;">₱${del.earnings.toFixed(2)}</td>
       </tr>
     `;
@@ -1401,8 +1403,8 @@ document.getElementById('reportExcelBtn')?.addEventListener('click', () => {
   let csv = 'Delivery Report\n';
   csv += `Date Range: ${new Date(startDate).toLocaleDateString()} - ${new Date(endDate).toLocaleDateString()}\n\n`;
 
-  // Headers - SIMPLIFIED: Company,DR #,Delivered,Returned,Earnings
-  csv += 'Company,DR #,Delivered,Returned,Earnings\n';
+  // Headers: Company,DR #,Delivered,Returned,Unit Price,Earnings
+  csv += 'Company,DR #,Delivered,Returned,Unit Price,Earnings\n';
 
   // Data
   let totalDelivered = 0, totalReturned = 0, totalEarnings = 0;
@@ -1411,11 +1413,11 @@ document.getElementById('reportExcelBtn')?.addEventListener('click', () => {
     totalReturned += d.returns;
     totalEarnings += d.earnings;
 
-    csv += `"${d.company}","${d.dr_number || '-'}",${d.qty},${d.returns},"₱${d.earnings.toFixed(2)}"\n`;
+    csv += `"${d.company}","${d.dr_number || '-'}",${d.qty},${d.returns},"₱${d.unitPrice.toFixed(2)}","₱${d.earnings.toFixed(2)}"\n`;
   });
 
   // Totals
-  csv += `\n"TOTAL","",${totalDelivered},${totalReturned},"₱${totalEarnings.toFixed(2)}"\n`;
+  csv += `\n"TOTAL","",${totalDelivered},${totalReturned},,"₱${totalEarnings.toFixed(2)}"\n`;
 
   const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
   const link = document.createElement('a');
@@ -1463,6 +1465,7 @@ document.getElementById('reportPdfBtn')?.addEventListener('click', () => {
             <th>DR #</th>
             <th class="text-center">Delivered</th>
             <th class="text-center">Returned</th>
+            <th class="text-right">Unit Price</th>
             <th class="text-right">Earnings</th>
           </tr>
         </thead>
@@ -1481,6 +1484,7 @@ document.getElementById('reportPdfBtn')?.addEventListener('click', () => {
         <td>${d.dr_number || '-'}</td>
         <td class="text-center">${d.qty}</td>
         <td class="text-center">${d.returns}</td>
+        <td class="text-right">₱${d.unitPrice.toFixed(2)}</td>
         <td class="text-right">₱${d.earnings.toFixed(2)}</td>
       </tr>
     `;
@@ -1493,6 +1497,7 @@ document.getElementById('reportPdfBtn')?.addEventListener('click', () => {
             <td colspan="2">TOTAL</td>
             <td class="text-center">${totalDelivered}</td>
             <td class="text-center">${totalReturned}</td>
+            <td></td>
             <td class="text-right">₱${totalEarnings.toFixed(2)}</td>
           </tr>
         </tfoot>
@@ -1525,6 +1530,41 @@ async function loadHistoryData() {
   } catch (e) {
     console.error('Error loading history data:', e);
   }
+}
+
+// Load all deliveries by default when history tab is shown
+function loadAllDeliveriesHistory() {
+  // Create company map
+  const companyMap = {};
+  allCompanies.forEach(c => {
+    companyMap[c.name] = { id: c.id, unitPrice: parseFloat(c.unit_price) || 0 };
+  });
+
+  // Use all deliveries
+  let filtered = allDeliveries.slice();
+
+  // Sort by date descending (newest first)
+  filtered.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
+
+  // Add calculated fields
+  filtered = filtered.map(del => {
+    const unitPrice = companyMap[del.company]?.unitPrice || 0;
+    const qty = del.bottles_delivered || del.delivered || 0;
+    const amount = qty * unitPrice;
+    const returns = del.bottles_returned || del.returned || 0;
+    const earnings = amount;
+
+    return {
+      ...del,
+      unitPrice,
+      qty,
+      amount,
+      returns,
+      earnings
+    };
+  });
+
+  renderDeliveryHistory(filtered, '', '', '');
 }
 
 // History date range filter
@@ -1594,19 +1634,26 @@ function renderDeliveryHistory(deliveries, label, startDate, endDate) {
   container.style.display = 'block';
   empty.style.display = 'none';
 
-  if (startDate === endDate) {
-    dateRangeEl.textContent = `${new Date(startDate).toLocaleDateString()} - ${deliveries.length} deliveries`;
+  // Format date range text
+  let dateRangeText = '';
+  if (!startDate && !endDate) {
+    // All-time view
+    dateRangeText = `All Deliveries (${deliveries.length} total)`;
+  } else if (startDate === endDate) {
+    dateRangeText = `${new Date(startDate).toLocaleDateString()} - ${deliveries.length} deliveries`;
   } else {
-    dateRangeEl.textContent = `${new Date(startDate).toLocaleDateString()} - ${new Date(endDate).toLocaleDateString()} (${deliveries.length} deliveries)`;
+    dateRangeText = `${new Date(startDate).toLocaleDateString()} - ${new Date(endDate).toLocaleDateString()} (${deliveries.length} deliveries)`;
   }
+  dateRangeEl.textContent = dateRangeText;
 
-  // SIMPLIFIED: Company | DR # | Delivered | Returned | Earnings
+  // Company | DR # | Delivered | Returned | Unit Price | Earnings
   tbody.innerHTML = deliveries.map(del => `
     <tr style="border-bottom: 1px solid #ddd;">
       <td style="padding: 8px; border: 1px solid #ddd;">${del.company}</td>
       <td style="padding: 8px; border: 1px solid #ddd;">${del.dr_number || '-'}</td>
       <td style="padding: 8px; border: 1px solid #ddd; text-align: center;">${del.qty}</td>
       <td style="padding: 8px; border: 1px solid #ddd; text-align: center;">${del.returns}</td>
+      <td style="padding: 8px; border: 1px solid #ddd; text-align: right;">₱${del.unitPrice.toFixed(2)}</td>
       <td style="padding: 8px; border: 1px solid #ddd; text-align: right; color: #28a745; font-weight: bold;">₱${del.earnings.toFixed(2)}</td>
     </tr>
   `).join('');
