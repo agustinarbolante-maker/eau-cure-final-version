@@ -221,6 +221,20 @@ app.get('/api/billing-statements', authenticateToken, async (req, res) => {
   }
 });
 
+app.get('/api/billing-statements/:id', authenticateToken, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const billingStatements = await db.getAllBillingStatements();
+    const billing = billingStatements.find(b => b.id === parseInt(id));
+    if (!billing) {
+      return res.status(404).json({ error: 'Billing statement not found' });
+    }
+    res.json(billing);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 app.put('/api/billing-statements/:id', authenticateToken, requireAdminOrHigher, async (req, res) => {
   try {
     const { id } = req.params;

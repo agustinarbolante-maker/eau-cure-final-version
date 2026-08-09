@@ -422,6 +422,9 @@ function getLast7Days() {
 function renderDeliveries(deliveries) {
   const tbody = document.getElementById('recordsBody');
 
+  // Only render if the element exists (it's not used in current layout)
+  if (!tbody) return;
+
   if (deliveries.length === 0) {
     tbody.innerHTML = '<tr class="empty-state"><td colspan="6">No records yet</td></tr>';
     return;
@@ -710,7 +713,7 @@ document.getElementById('companyForm')?.addEventListener('submit', async (e) => 
 
   const data = {
     name: document.getElementById('comName').value,
-    unit_price: parseFloat(document.getElementById('comPrice').value)
+    unitPrice: parseFloat(document.getElementById('comPrice').value)
   };
 
   try {
@@ -725,8 +728,16 @@ document.getElementById('companyForm')?.addEventListener('submit', async (e) => 
       document.getElementById('companyForm').reset();
       loadCompanies();
     } else {
-      const error = await response.json().catch(() => ({}));
-      showNotification(error.message || 'Error adding company', 'error');
+      const errorText = await response.text();
+      let errorMsg = 'Error adding company';
+      try {
+        const errorJson = JSON.parse(errorText);
+        errorMsg = errorJson.message || errorJson.error || errorMsg;
+      } catch (e) {
+        errorMsg = errorText || errorMsg;
+      }
+      console.error('Add company failed:', response.status, errorMsg);
+      showNotification(errorMsg, 'error');
     }
   } catch (error) {
     console.error('Error adding company:', error);
@@ -940,15 +951,20 @@ document.getElementById('editBillingForm')?.addEventListener('submit', async (e)
     const updateResponse = await fetch(`/api/billing-statements/${id}`, {
       method: 'PUT',
       headers: getHeaders(),
-      body: JSON.stringify({ paid: !billing.paid })
+      body: JSON.stringify({ isPaid: !billing.paid })
     });
 
     if (updateResponse.ok) {
       closeModal('editBillingModal');
       loadBillings();
+      showNotification('✓ Billing status updated!', 'success');
+    } else {
+      const error = await updateResponse.json().catch(() => ({}));
+      showNotification(error.error || 'Error updating billing status', 'error');
     }
   } catch (error) {
     console.error('Error updating billing:', error);
+    showNotification('Connection error', 'error');
   }
 });
 
