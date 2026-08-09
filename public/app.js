@@ -490,12 +490,16 @@ function selectDeliveryDate(dateStr) {
 document.getElementById('deliveryForm')?.addEventListener('submit', async (e) => {
   e.preventDefault();
 
+  const date = document.getElementById('delDate').value;
+  const timestamp = date ? new Date(date).toISOString() : new Date().toISOString();
+
   const data = {
     company_id: parseInt(document.getElementById('delCompany').value),
     delivered: parseInt(document.getElementById('delDelivered').value),
     returned: parseInt(document.getElementById('delReturned').value),
     dr_number: document.getElementById('delDRNumber').value,
-    notes: document.getElementById('delNotes').value
+    notes: document.getElementById('delNotes').value,
+    timestamp: timestamp
   };
 
   try {
