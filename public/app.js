@@ -383,7 +383,12 @@ function renderDeliveryChart(deliveries) {
     }
   });
 
-  if (trendChart) trendChart.destroy();
+  console.log('Chart data (last 7 days):', data);
+
+  if (trendChart) {
+    console.log('Destroying old chart');
+    trendChart.destroy();
+  }
 
   trendChart = new Chart(ctx, {
     type: 'line',
@@ -820,8 +825,9 @@ async function showCompanyStats(id) {
     deliveries.forEach(del => {
       if (del.company_id === id) {
         stats.count++;
-        stats.delivered += del.delivered;
-        stats.returned += del.returned;
+        // Use correct field names from API (bottles_delivered/bottles_returned)
+        stats.delivered += (del.bottles_delivered || del.delivered || 0);
+        stats.returned += (del.bottles_returned || del.returned || 0);
       }
     });
 
