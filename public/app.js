@@ -675,22 +675,32 @@ document.getElementById('editCompanyForm')?.addEventListener('submit', async (e)
     if (response.ok) {
       closeModal('editCompanyModal');
       loadCompanies();
+      showNotification('✓ Company updated successfully!', 'success');
+    } else {
+      const error = await response.json().catch(() => ({}));
+      showNotification(error.message || 'Error updating company', 'error');
     }
   } catch (error) {
     console.error('Error updating company:', error);
+    showNotification('Connection error - could not update company', 'error');
   }
 });
 
 async function deleteCompany(id) {
-  if (!confirm('Delete this company?')) return;
+  if (!confirm('Delete this company? This will also delete all associated deliveries.')) return;
 
   try {
     const response = await fetch(`/api/companies/${id}`, { method: 'DELETE', headers: getHeaders() });
     if (response.ok) {
       loadCompanies();
+      showNotification('✓ Company deleted successfully!', 'success');
+    } else {
+      const error = await response.json().catch(() => ({}));
+      showNotification(error.message || 'Error deleting company', 'error');
     }
   } catch (error) {
     console.error('Error deleting company:', error);
+    showNotification('Connection error - could not delete company', 'error');
   }
 }
 
@@ -1428,6 +1438,232 @@ document.getElementById('exportReportPdfBtn')?.addEventListener('click', () => {
 // ============================================
 // SETUP EVENT LISTENERS
 // ============================================
+
+// ============================================
+// EARNINGS REPORT
+// ============================================
+
+let currentEarningsData = null;
+
+// Tab switching
+document.getElementById('recordsTab')?.addEventListener('click', () => {
+  document.getElementById('recordsContent').style.display = 'block';
+  document.getElementById('earningsContent').style.display = 'none';
+  document.getElementById('recordsTab').style.borderBottomColor = '#667eea';
+  document.getElementById('recordsTab').style.color = '#333';
+  document.getElementById('recordsTab').style.fontWeight = 'bold';
+  document.getElementById('earningsTab').style.borderBottomColor = 'transparent';
+  document.getElementById('earningsTab').style.color = '#666';
+  document.getElementById('earningsTab').style.fontWeight = 'normal';
+});
+
+document.getElementById('earningsTab')?.addEventListener('click', () => {
+  document.getElementById('recordsContent').style.display = 'none';
+  document.getElementById('earningsContent').style.display = 'block';
+  document.getElementById('earningsTab').style.borderBottomColor = '#667eea';
+  document.getElementById('earningsTab').style.color = '#333';
+  document.getElementById('earningsTab').style.fontWeight = 'bold';
+  document.getElementById('recordsTab').style.borderBottomColor = 'transparent';
+  document.getElementById('recordsTab').style.color = '#666';
+  document.getElementById('recordsTab').style.fontWeight = 'normal';
+});
+
+document.getElementById('earningsForm')?.addEventListener('submit', async (e) => {
+  e.preventDefault();
+
+  const startDate = document.getElementById('earStartDate').value;
+  const endDate = document.getElementById('earEndDate').value;
+  const groupBy = document.getElementById('earGroupBy').value;
+
+  if (!startDate || !endDate) {
+    showNotification('Please select both start and end dates', 'error');
+    return;
+  }
+
+  try {
+    const deliveriesResponse = await fetch('/api/deliveries', { headers: getHeaders() });
+    const deliveries = deliveriesResponse.ok ? await deliveriesResponse.json() : [];
+
+    const companiesResponse = await fetch('/api/companies/all', { headers: getHeaders() });
+    const companies = companiesResponse.ok ? await companiesResponse.json() : [];
+
+    // Create company map for quick lookup
+    const companyMap = {};
+    companies.forEach(c => {
+      companyMap[c.name] = { unitPrice: parseFloat(c.unit_price) || 0 };
+    });
+
+    const startDateObj = new Date(startDate);
+    const endDateObj = new Date(endDate);
+
+    // Filter and group deliveries
+    const earnings = {};
+
+    deliveries.forEach(del => {
+      const delDate = new Date(del.timestamp);
+      if (delDate >= startDateObj && delDate <= endDateObj) {
+        const companyName = del.company || 'Unknown';
+        const unitPrice = companyMap[companyName]?.unitPrice || 0;
+        const amount = (del.bottles_delivered || del.delivered || 0) * unitPrice;
+
+        let period = '';
+        if (groupBy === 'day') {
+          period = delDate.toLocaleDateString();
+        } else if (groupBy === 'week') {
+          const d = new Date(delDate);
+          const day = d.getDay();
+          const diff = d.getDate() - day;
+          const weekStart = new Date(d.setDate(diff));
+          period = `Week of ${weekStart.toLocaleDateString()}`;
+        } else {
+          period = companyName;
+        }
+
+        const key = `${period}|${companyName}`;
+        if (!earnings[key]) {
+          earnings[key] = {
+            period,
+            company: companyName,
+            delivered: 0,
+            unitPrice,
+            amount: 0
+          };
+        }
+        earnings[key].delivered += (del.bottles_delivered || del.delivered || 0);
+        earnings[key].amount += amount;
+      }
+    });
+
+    currentEarningsData = {
+      startDate,
+      endDate,
+      data: Object.values(earnings),
+      groupBy
+    };
+
+    renderEarningsReport(currentEarningsData);
+    showNotification('✓ Earnings report generated successfully', 'success');
+  } catch (error) {
+    console.error('Error generating earnings report:', error);
+    showNotification('Error generating earnings report', 'error');
+  }
+});
+
+function renderEarningsReport(earningsData) {
+  const tbody = document.getElementById('earningsBody');
+  const table = document.getElementById('earningsTableContainer');
+  const empty = document.getElementById('earningsEmpty');
+  const rows = earningsData.data;
+
+  if (rows.length === 0) {
+    table.style.display = 'none';
+    empty.style.display = 'block';
+    return;
+  }
+
+  table.style.display = 'block';
+  empty.style.display = 'none';
+
+  tbody.innerHTML = rows.map(d => `
+    <tr>
+      <td>${d.period}</td>
+      <td>${d.company}</td>
+      <td>${d.delivered}</td>
+      <td>₱${d.unitPrice.toFixed(2)}</td>
+      <td style="font-weight: bold; color: #28a745;">₱${d.amount.toFixed(2)}</td>
+    </tr>
+  `).join('');
+
+  // Update summary
+  const totalAmount = rows.reduce((sum, r) => sum + r.amount, 0);
+  const totalDelivered = rows.reduce((sum, r) => sum + r.delivered, 0);
+  const startDate = new Date(earningsData.startDate);
+  const endDate = new Date(earningsData.endDate);
+  const days = Math.ceil((endDate - startDate) / (1000 * 60 * 60 * 24)) + 1;
+  const avgDaily = totalAmount / (days || 1);
+
+  document.getElementById('earningsSummaryTotal').textContent = `₱${totalAmount.toFixed(2)}`;
+  document.getElementById('earningsSummaryDelivered').textContent = totalDelivered;
+  document.getElementById('earningsSummaryAvg').textContent = `₱${avgDaily.toFixed(2)}`;
+}
+
+document.getElementById('earningsExcelBtn')?.addEventListener('click', () => {
+  if (!currentEarningsData) {
+    showNotification('Please generate a report first', 'error');
+    return;
+  }
+
+  const { startDate, endDate, data } = currentEarningsData;
+  let csv = 'Earnings Report\n';
+  csv += `Date Range: ${new Date(startDate).toLocaleDateString()} - ${new Date(endDate).toLocaleDateString()}\n\n`;
+  csv += 'Period,Company,Delivered,Unit Price,Total Earnings\n';
+
+  let totalAmount = 0;
+  data.forEach(d => {
+    csv += `"${d.period}","${d.company}",${d.delivered},₱${d.unitPrice.toFixed(2)},₱${d.amount.toFixed(2)}\n`;
+    totalAmount += d.amount;
+  });
+
+  csv += `\n\nTOTAL EARNINGS,,,, ₱${totalAmount.toFixed(2)}\n`;
+
+  const blob = new Blob([csv], { type: 'text/csv' });
+  const url = window.URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `earnings_report_${new Date().toISOString().split('T')[0]}.csv`;
+  a.click();
+});
+
+document.getElementById('earningsPdfBtn')?.addEventListener('click', () => {
+  if (!currentEarningsData) {
+    showNotification('Please generate a report first', 'error');
+    return;
+  }
+
+  const { startDate, endDate, data } = currentEarningsData;
+  const win = window.open('', '', 'height=600,width=900');
+
+  let html = `
+    <html><head><title>Earnings Report</title></head><body style="font-family: Arial, sans-serif; padding: 20px;">
+    <h1>Earnings Report</h1>
+    <p><strong>Date Range:</strong> ${new Date(startDate).toLocaleDateString()} - ${new Date(endDate).toLocaleDateString()}</p>
+    <table border="1" cellpadding="8" style="width: 100%; border-collapse: collapse;">
+    <tr style="background: #f0f0f0;">
+      <th>Period</th>
+      <th>Company</th>
+      <th>Delivered</th>
+      <th>Unit Price</th>
+      <th>Total Earnings</th>
+    </tr>
+  `;
+
+  let totalAmount = 0;
+  data.forEach(d => {
+    totalAmount += d.amount;
+    html += `
+      <tr>
+        <td>${d.period}</td>
+        <td>${d.company}</td>
+        <td style="text-align: center;">${d.delivered}</td>
+        <td style="text-align: right;">₱${d.unitPrice.toFixed(2)}</td>
+        <td style="text-align: right; font-weight: bold; color: #28a745;">₱${d.amount.toFixed(2)}</td>
+      </tr>
+    `;
+  });
+
+  html += `
+    <tr style="background: #f0f0f0; font-weight: bold; font-size: 1.1em;">
+      <td colspan="4" style="text-align: right;">TOTAL EARNINGS:</td>
+      <td style="text-align: right; color: #28a745;">₱${totalAmount.toFixed(2)}</td>
+    </tr>
+    </table>
+    <p style="margin-top: 30px; color: #666; font-size: 0.9em;">Generated on ${new Date().toLocaleString()}</p>
+    </body></html>
+  `;
+
+  win.document.write(html);
+  setTimeout(() => { win.print(); }, 500);
+});
 
 function setupEventListeners() {
   document.querySelectorAll('.overview-tab').forEach(tab => {

@@ -182,28 +182,108 @@
 
       <!-- RECORDS PAGE -->
       <section id="records-page" class="page-content">
-        <h2>Delivery Records</h2>
-        <div class="table-actions">
-          <button class="btn btn-secondary btn-sm" id="exportBtn">📥 Export</button>
-          <button class="btn btn-secondary btn-sm" id="printBtn">🖨️ Print</button>
-          <button class="btn btn-secondary btn-sm" id="backupBtn">💾 Backup</button>
+        <!-- Tabs for Records and Earnings -->
+        <div style="margin-bottom: 20px; border-bottom: 2px solid #ddd; display: flex; gap: 10px;">
+          <button class="btn btn-tertiary" id="recordsTab" style="border-bottom: 3px solid #667eea; padding-bottom: 10px; background: none; color: #333; font-weight: bold;">📝 Delivery Records</button>
+          <button class="btn btn-tertiary" id="earningsTab" style="padding-bottom: 10px; background: none; color: #666;">💰 Earnings Report</button>
         </div>
-        <div class="table-wrapper">
-          <table id="recordsTable">
-            <thead>
-              <tr>
-                <th>Company</th>
-                <th>Delivered</th>
-                <th>Returned</th>
-                <th>DR Number</th>
-                <th>Timestamp</th>
-                <th>Actions</th>
-              </tr>
-            </thead>
-            <tbody id="recordsBody">
-              <tr class="empty-state"><td colspan="6">No records yet</td></tr>
-            </tbody>
-          </table>
+
+        <!-- DELIVERY RECORDS TAB -->
+        <div id="recordsContent">
+          <h2>Delivery Records</h2>
+          <div class="table-actions">
+            <button class="btn btn-secondary btn-sm" id="exportBtn">📥 Export</button>
+            <button class="btn btn-secondary btn-sm" id="printBtn">🖨️ Print</button>
+            <button class="btn btn-secondary btn-sm" id="backupBtn">💾 Backup</button>
+          </div>
+          <div class="table-wrapper">
+            <table id="recordsTable">
+              <thead>
+                <tr>
+                  <th>Company</th>
+                  <th>Delivered</th>
+                  <th>Returned</th>
+                  <th>DR Number</th>
+                  <th>Timestamp</th>
+                  <th>Actions</th>
+                </tr>
+              </thead>
+              <tbody id="recordsBody">
+                <tr class="empty-state"><td colspan="6">No records yet</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- EARNINGS REPORT TAB -->
+        <div id="earningsContent" style="display: none;">
+          <h2>Earnings Report</h2>
+          <form id="earningsForm" style="background: #f8f9fa; padding: 20px; border-radius: 8px; margin-bottom: 20px; max-width: 600px;">
+            <div class="form-row">
+              <div class="form-group">
+                <label>Start Date</label>
+                <input type="date" id="earStartDate" required>
+              </div>
+              <div class="form-group">
+                <label>End Date</label>
+                <input type="date" id="earEndDate" required>
+              </div>
+            </div>
+            <div class="form-group">
+              <label>Group By</label>
+              <select id="earGroupBy">
+                <option value="day">Day</option>
+                <option value="week">Week</option>
+                <option value="company">Company</option>
+              </select>
+            </div>
+            <button type="submit" class="btn btn-primary">Generate Report</button>
+          </form>
+
+          <div id="earningsEmpty" style="text-align: center; color: #999; padding: 40px;">
+            <p>Select date range and click "Generate Report"</p>
+          </div>
+
+          <div id="earningsTableContainer" style="display: none;">
+            <div class="table-actions">
+              <button class="btn btn-secondary btn-sm" id="earningsExcelBtn">📊 Excel</button>
+              <button class="btn btn-secondary btn-sm" id="earningsPdfBtn">📄 PDF</button>
+            </div>
+            <div class="table-wrapper">
+              <table id="earningsTable">
+                <thead id="earningsTableHead">
+                  <tr>
+                    <th>Period</th>
+                    <th>Company</th>
+                    <th>Delivered</th>
+                    <th>Unit Price</th>
+                    <th>Total Earnings</th>
+                  </tr>
+                </thead>
+                <tbody id="earningsBody">
+                  <tr class="empty-state"><td colspan="5">No data</td></tr>
+                </tbody>
+              </table>
+            </div>
+
+            <div style="background: #f8f9fa; padding: 20px; border-radius: 8px; margin-top: 20px;">
+              <h3>Summary</h3>
+              <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 15px;">
+                <div style="text-align: center;">
+                  <div style="color: #666; font-size: 0.9em;">Total Earnings</div>
+                  <div id="earningsSummaryTotal" style="font-size: 1.5em; font-weight: bold; color: #28a745;">₱0.00</div>
+                </div>
+                <div style="text-align: center;">
+                  <div style="color: #666; font-size: 0.9em;">Total Delivered</div>
+                  <div id="earningsSummaryDelivered" style="font-size: 1.5em; font-weight: bold; color: #667eea;">0</div>
+                </div>
+                <div style="text-align: center;">
+                  <div style="color: #666; font-size: 0.9em;">Avg Daily Earnings</div>
+                  <div id="earningsSummaryAvg" style="font-size: 1.5em; font-weight: bold; color: #764ba2;">₱0.00</div>
+                </div>
+              </div>
+            </div>
+          </div>
         </div>
       </section>
 
