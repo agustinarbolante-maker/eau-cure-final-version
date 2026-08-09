@@ -927,20 +927,26 @@ document.getElementById('billingForm')?.addEventListener('submit', async (e) => 
 
 async function toggleBillingStatus(id) {
   try {
+    console.log('Fetching billing statement:', id);
     const response = await fetch(`/api/billing-statements/${id}`, { headers: getHeaders() });
+    console.log('Response status:', response.status);
+
     if (response.ok) {
       const billing = await response.json();
+      console.log('Billing data:', billing);
       document.getElementById('editBilId').value = id;
       // Database field is is_paid (SQLite returns it as is_paid)
       const isPaid = billing.is_paid || billing.paid;
       document.getElementById('billingStatusText').textContent = `Current status: ${isPaid ? 'Paid' : 'Unpaid'}`;
       openModal('editBillingModal');
     } else {
-      showNotification('Error loading billing status', 'error');
+      const errorText = await response.text();
+      console.error('GET billing error:', response.status, errorText);
+      showNotification(`Error loading billing status: ${response.status}`, 'error');
     }
   } catch (error) {
     console.error('Error loading billing:', error);
-    showNotification('Connection error', 'error');
+    showNotification(`Connection error: ${error.message}`, 'error');
   }
 }
 
