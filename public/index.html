@@ -3,65 +3,166 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Eau Cure - Water Delivery Tracker</title>
+  <title>Eau Cure - Water Station Delivery Tracker</title>
   <link rel="stylesheet" href="styles.css">
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@3.9.1/dist/chart.min.js"></script>
 </head>
 <body>
-  <!-- Login Page -->
-  <div id="loginPage" class="page" style="display: none;">
+  <!-- LOGIN PAGE -->
+  <div id="loginPage" class="auth-page" style="display: none;">
     <div class="login-container">
       <div class="login-card">
-        <header style="text-align: center; margin-bottom: 40px; background: none; box-shadow: none; padding: 0;">
+        <div class="login-header">
           <h1>💧 Eau Cure</h1>
           <p>Water Station Delivery Tracker</p>
-        </header>
+        </div>
 
-        <form id="loginForm">
-          <h2 style="text-align: center; border: none; padding: 0; margin: 0 0 30px 0;">Employee Login</h2>
+        <form id="loginForm" class="login-form">
           <div class="form-group">
-            <label>Username</label>
-            <input type="text" id="username" placeholder="Enter username" required>
+            <label for="username">Username</label>
+            <input type="text" id="username" placeholder="Enter your username" required>
           </div>
           <div class="form-group">
-            <label>Password</label>
-            <input type="password" id="password" placeholder="Enter password" required>
+            <label for="password">Password</label>
+            <input type="password" id="password" placeholder="Enter your password" required>
           </div>
-          <button type="submit" class="btn btn-primary" style="width: 100%;">Login</button>
-          <div id="loginError" style="display: none; color: #f44336; margin-top: 15px; text-align: center; font-weight: 600;"></div>
+          <button type="submit" class="btn btn-primary btn-large">Login</button>
+          <div id="loginError" class="error-message" style="display: none;"></div>
         </form>
       </div>
     </div>
   </div>
 
-  <!-- Main App Page -->
-  <div id="appPage" class="page" style="display: none;">
-    <div class="container">
-      <header style="display: flex; justify-content: space-between; align-items: center;">
-        <div>
-          <h1>💧 Eau Cure</h1>
-          <p id="pageTitle">Water Station Delivery Tracker</p>
+  <!-- MAIN APP PAGE -->
+  <div id="appPage" class="app-container" style="display: none;">
+    <!-- SIDEBAR -->
+    <aside class="sidebar">
+      <div class="sidebar-header">
+        <h2>💧 Eau Cure</h2>
+      </div>
+
+      <nav class="sidebar-nav">
+        <button class="nav-btn active" data-page="dashboard">
+          <span class="icon">📊</span>
+          <span class="label">Dashboard</span>
+        </button>
+        <button class="nav-btn" data-page="deliveries">
+          <span class="icon">🚚</span>
+          <span class="label">Deliveries</span>
+        </button>
+        <button class="nav-btn" data-page="records">
+          <span class="icon">📋</span>
+          <span class="label">Records</span>
+        </button>
+        <button class="nav-btn" data-page="companies">
+          <span class="icon">🏢</span>
+          <span class="label">Companies</span>
+        </button>
+        <button class="nav-btn" data-page="billing">
+          <span class="icon">💰</span>
+          <span class="label">Billing</span>
+        </button>
+        <button class="nav-btn admin-only" data-page="settings" style="display: none;">
+          <span class="icon">⚙️</span>
+          <span class="label">Settings</span>
+        </button>
+      </nav>
+
+      <div class="sidebar-footer">
+        <div class="user-info">
+          <p id="sidebarUser" class="user-name"></p>
+          <p class="user-role" id="sidebarRole"></p>
         </div>
-        <div style="text-align: right;">
-          <p style="margin: 0 0 10px 0; color: white;"><strong id="currentUser"></strong></p>
-          <button id="logoutBtn" class="btn btn-secondary" style="padding: 8px 16px; font-size: 0.9em;">Logout</button>
+        <button id="sidebarLogout" class="btn btn-secondary btn-sm">Logout</button>
+      </div>
+    </aside>
+
+    <!-- MAIN CONTENT -->
+    <main class="main-content">
+      <header class="top-header">
+        <h1 id="pageTitle">Dashboard</h1>
+        <div class="header-actions">
+          <p id="headerUser" class="header-user"></p>
+          <button id="headerLogout" class="btn btn-secondary btn-sm">Logout</button>
         </div>
       </header>
 
-      <!-- Tab Navigation -->
-      <div class="tabs">
-        <button class="tab-btn active" data-tab="deliveries">Deliveries</button>
-        <button class="tab-btn" data-tab="companies">Companies</button>
-        <button class="tab-btn" data-tab="billing">Billing</button>
-        <button class="tab-btn" data-tab="reports">Reports</button>
-        <button class="tab-btn admin-only" data-tab="settings">Settings</button>
-      </div>
+      <!-- DASHBOARD PAGE -->
+      <section id="dashboard-page" class="page-content active">
+        <!-- Overview Tabs -->
+        <div class="overview-tabs">
+          <button class="overview-tab active" data-filter="today">Today</button>
+          <button class="overview-tab" data-filter="week">This Week</button>
+          <button class="overview-tab" data-filter="month">This Month</button>
+          <button class="overview-tab" data-filter="all">All Time</button>
+        </div>
 
-      <!-- Main Content -->
-      <main>
-        <!-- Deliveries Tab -->
-        <section id="deliveries-tab" class="tab-content active">
-          <section class="form-section">
-            <h2>Record New Delivery</h2>
+        <!-- Statistics Grid -->
+        <div class="stats-grid">
+          <div class="stat-card stat-card-primary">
+            <h3>Total Deliveries</h3>
+            <p class="stat-value" id="statDeliveries">0</p>
+          </div>
+          <div class="stat-card stat-card-success">
+            <h3>Total Delivered</h3>
+            <p class="stat-value" id="statDelivered">0</p>
+          </div>
+          <div class="stat-card stat-card-warning">
+            <h3>Total Returned</h3>
+            <p class="stat-value" id="statReturned">0</p>
+          </div>
+          <div class="stat-card stat-card-info">
+            <h3>Net Bottles</h3>
+            <p class="stat-value" id="statNet">0</p>
+          </div>
+        </div>
+
+        <!-- Chart Section -->
+        <div class="chart-section">
+          <h2>Delivery Trends (7 Days)</h2>
+          <div class="chart-container">
+            <canvas id="trendChart"></canvas>
+          </div>
+        </div>
+
+        <!-- Filters & Calendar -->
+        <div class="dashboard-grid">
+          <!-- Filters Section -->
+          <div class="filter-section">
+            <h2>Filter Records</h2>
+            <div class="form-group">
+              <label>Company</label>
+              <select id="dashCompanyFilter">
+                <option value="">All Companies</option>
+              </select>
+            </div>
+            <div class="form-row">
+              <div class="form-group">
+                <label>From Date</label>
+                <input type="date" id="dashFromDate">
+              </div>
+              <div class="form-group">
+                <label>To Date</label>
+                <input type="date" id="dashToDate">
+              </div>
+            </div>
+            <button class="btn btn-primary" id="dashFilterBtn">Apply Filters</button>
+          </div>
+
+          <!-- Calendar Section -->
+          <div class="calendar-section">
+            <h2>Calendar</h2>
+            <div id="calendar" class="calendar"></div>
+          </div>
+        </div>
+      </section>
+
+      <!-- DELIVERIES PAGE -->
+      <section id="deliveries-page" class="page-content">
+        <div class="page-grid">
+          <!-- Form Section -->
+          <div class="form-section">
+            <h2>New Delivery Entry</h2>
             <form id="deliveryForm">
               <div class="form-group">
                 <label>Company</label>
@@ -78,8 +179,8 @@
                 </div>
               </div>
               <div class="form-group">
-                <label>Location</label>
-                <input type="text" id="delLocation" placeholder="Delivery location">
+                <label>DR Number</label>
+                <input type="text" id="delDRNumber" placeholder="e.g., DR-001">
               </div>
               <div class="form-group">
                 <label>Notes</label>
@@ -87,33 +188,42 @@
               </div>
               <button type="submit" class="btn btn-primary">Add Delivery</button>
             </form>
-          </section>
+          </div>
+        </div>
+      </section>
 
-          <section class="table-section">
-            <h2>Delivery Records</h2>
-            <div class="table-wrapper">
-              <table id="deliveriesTable">
-                <thead>
-                  <tr>
-                    <th>Company</th>
-                    <th>Delivered</th>
-                    <th>Returned</th>
-                    <th>Location</th>
-                    <th>Timestamp</th>
-                    <th>Actions</th>
-                  </tr>
-                </thead>
-                <tbody id="deliveriesBody">
-                  <tr class="empty-state"><td colspan="6">No deliveries yet</td></tr>
-                </tbody>
-              </table>
-            </div>
-          </section>
-        </section>
+      <!-- RECORDS PAGE -->
+      <section id="records-page" class="page-content">
+        <h2>Delivery Records</h2>
+        <div class="table-actions">
+          <button class="btn btn-secondary btn-sm" id="exportBtn">📥 Export</button>
+          <button class="btn btn-secondary btn-sm" id="printBtn">🖨️ Print</button>
+          <button class="btn btn-secondary btn-sm" id="backupBtn">💾 Backup</button>
+        </div>
+        <div class="table-wrapper">
+          <table id="recordsTable">
+            <thead>
+              <tr>
+                <th>Company</th>
+                <th>Delivered</th>
+                <th>Returned</th>
+                <th>DR Number</th>
+                <th>Timestamp</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody id="recordsBody">
+              <tr class="empty-state"><td colspan="6">No records yet</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
 
-        <!-- Companies Tab -->
-        <section id="companies-tab" class="tab-content">
-          <section class="form-section">
+      <!-- COMPANIES PAGE -->
+      <section id="companies-page" class="page-content">
+        <div class="page-grid">
+          <!-- Form Section -->
+          <div class="form-section">
             <h2>Add New Company</h2>
             <form id="companyForm">
               <div class="form-group">
@@ -126,30 +236,32 @@
               </div>
               <button type="submit" class="btn btn-primary">Add Company</button>
             </form>
-          </section>
+          </div>
+        </div>
 
-          <section class="table-section">
-            <h2>Companies</h2>
-            <div class="table-wrapper">
-              <table id="companiesTable">
-                <thead>
-                  <tr>
-                    <th>Company Name</th>
-                    <th>Unit Price</th>
-                    <th>Actions</th>
-                  </tr>
-                </thead>
-                <tbody id="companiesBody">
-                  <tr class="empty-state"><td colspan="3">No companies yet</td></tr>
-                </tbody>
-              </table>
-            </div>
-          </section>
-        </section>
+        <h2>Companies List</h2>
+        <div class="table-wrapper">
+          <table id="companiesTable">
+            <thead>
+              <tr>
+                <th>Company Name</th>
+                <th>Unit Price</th>
+                <th>Statistics</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody id="companiesBody">
+              <tr class="empty-state"><td colspan="4">No companies yet</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
 
-        <!-- Billing Tab -->
-        <section id="billing-tab" class="tab-content">
-          <section class="form-section">
+      <!-- BILLING PAGE -->
+      <section id="billing-page" class="page-content">
+        <div class="page-grid">
+          <!-- Form Section -->
+          <div class="form-section">
             <h2>Create Billing Statement</h2>
             <form id="billingForm">
               <div class="form-group">
@@ -168,55 +280,33 @@
               </div>
               <button type="submit" class="btn btn-primary">Create Billing</button>
             </form>
-          </section>
+          </div>
+        </div>
 
-          <section class="table-section">
-            <h2>Billing Statements</h2>
-            <div class="table-wrapper">
-              <table id="billingTable">
-                <thead>
-                  <tr>
-                    <th>Company</th>
-                    <th>Period</th>
-                    <th>Amount</th>
-                    <th>Status</th>
-                    <th>Actions</th>
-                  </tr>
-                </thead>
-                <tbody id="billingBody">
-                  <tr class="empty-state"><td colspan="5">No billing statements yet</td></tr>
-                </tbody>
-              </table>
-            </div>
-          </section>
-        </section>
+        <h2>Billing Statements</h2>
+        <div class="table-wrapper">
+          <table id="billingTable">
+            <thead>
+              <tr>
+                <th>Company</th>
+                <th>Period</th>
+                <th>Amount</th>
+                <th>Status</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody id="billingBody">
+              <tr class="empty-state"><td colspan="5">No billing statements yet</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
 
-        <!-- Reports Tab -->
-        <section id="reports-tab" class="tab-content">
-          <section class="table-section">
-            <h2>Daily Reports</h2>
-            <div id="statsGrid" class="stats-grid"></div>
-            <div class="table-wrapper">
-              <table id="reportsTable">
-                <thead>
-                  <tr>
-                    <th>Company</th>
-                    <th>Delivered</th>
-                    <th>Returned</th>
-                    <th>Date</th>
-                  </tr>
-                </thead>
-                <tbody id="reportsBody">
-                  <tr class="empty-state"><td colspan="4">No data yet</td></tr>
-                </tbody>
-              </table>
-            </div>
-          </section>
-        </section>
-
-        <!-- Settings Tab -->
-        <section id="settings-tab" class="tab-content admin-only">
-          <section class="form-section">
+      <!-- SETTINGS PAGE -->
+      <section id="settings-page" class="page-content admin-only" style="display: none;">
+        <div class="page-grid">
+          <!-- Form Section -->
+          <div class="form-section">
             <h2>Create New User</h2>
             <form id="userForm">
               <div class="form-group">
@@ -241,36 +331,37 @@
               </div>
               <button type="submit" class="btn btn-primary">Create User</button>
             </form>
-          </section>
+          </div>
+        </div>
 
-          <section class="table-section">
-            <h2>Users</h2>
-            <div class="table-wrapper">
-              <table id="usersTable">
-                <thead>
-                  <tr>
-                    <th>Username</th>
-                    <th>Email</th>
-                    <th>Role</th>
-                    <th>Actions</th>
-                  </tr>
-                </thead>
-                <tbody id="usersBody">
-                  <tr class="empty-state"><td colspan="4">No users yet</td></tr>
-                </tbody>
-              </table>
-            </div>
-          </section>
-        </section>
-      </main>
-    </div>
+        <h2>Users</h2>
+        <div class="table-wrapper">
+          <table id="usersTable">
+            <thead>
+              <tr>
+                <th>Username</th>
+                <th>Email</th>
+                <th>Role</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody id="usersBody">
+              <tr class="empty-state"><td colspan="4">No users yet</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+    </main>
   </div>
 
-  <!-- Edit Modals -->
+  <!-- MODALS -->
+  <!-- Edit Delivery Modal -->
   <div id="editDeliveryModal" class="modal">
     <div class="modal-content">
-      <span class="close">&times;</span>
-      <h2>Edit Delivery</h2>
+      <div class="modal-header">
+        <h2>Edit Delivery</h2>
+        <button class="modal-close" onclick="closeModal('editDeliveryModal')">&times;</button>
+      </div>
       <form id="editDeliveryForm">
         <input type="hidden" id="editDelId">
         <div class="form-group">
@@ -288,8 +379,8 @@
           </div>
         </div>
         <div class="form-group">
-          <label>Location</label>
-          <input type="text" id="editDelLocation">
+          <label>DR Number</label>
+          <input type="text" id="editDelDRNumber">
         </div>
         <div class="form-group">
           <label>Notes</label>
@@ -303,10 +394,13 @@
     </div>
   </div>
 
+  <!-- Edit Company Modal -->
   <div id="editCompanyModal" class="modal">
     <div class="modal-content">
-      <span class="close">&times;</span>
-      <h2>Edit Company</h2>
+      <div class="modal-header">
+        <h2>Edit Company</h2>
+        <button class="modal-close" onclick="closeModal('editCompanyModal')">&times;</button>
+      </div>
       <form id="editCompanyForm">
         <input type="hidden" id="editComId">
         <div class="form-group">
@@ -325,10 +419,32 @@
     </div>
   </div>
 
+  <!-- Company Statistics Modal -->
+  <div id="companyStatsModal" class="modal">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h2 id="statsCompanyName">Company Statistics</h2>
+        <button class="modal-close" onclick="closeModal('companyStatsModal')">&times;</button>
+      </div>
+      <div class="stats-details">
+        <p><strong>Total Deliveries:</strong> <span id="statsDeliveries">0</span></p>
+        <p><strong>Total Delivered:</strong> <span id="statsDelivered">0</span></p>
+        <p><strong>Total Returned:</strong> <span id="statsReturned">0</span></p>
+        <p><strong>Net Bottles:</strong> <span id="statsNet">0</span></p>
+      </div>
+      <div class="modal-actions">
+        <button type="button" class="btn btn-secondary" onclick="closeModal('companyStatsModal')">Close</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Edit Billing Modal -->
   <div id="editBillingModal" class="modal">
     <div class="modal-content">
-      <span class="close">&times;</span>
-      <h2>Toggle Payment Status</h2>
+      <div class="modal-header">
+        <h2>Toggle Payment Status</h2>
+        <button class="modal-close" onclick="closeModal('editBillingModal')">&times;</button>
+      </div>
       <form id="editBillingForm">
         <input type="hidden" id="editBilId">
         <p id="billingStatusText"></p>
