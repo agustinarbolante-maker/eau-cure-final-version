@@ -187,7 +187,8 @@ async function loadAllData() {
   await Promise.all([
     loadCompanies(),
     loadDeliveries(),
-    loadBillings()
+    loadBillings(),
+    loadHistoryData()
   ]);
 }
 
@@ -1236,6 +1237,26 @@ document.addEventListener('DOMContentLoaded', async () => {
   }
 });
 
+// Helper: Parse date as UTC (FIX for timezone bug)
+function parseUTCDate(dateString) {
+  const [year, month, day] = dateString.split('-');
+  return new Date(Date.UTC(year, month - 1, day));
+}
+
+// Helper: Get date range for filtering
+function getDateRangeFilterFunction(startDate, endDate) {
+  // Parse dates as UTC to avoid timezone issues
+  const startUTC = parseUTCDate(startDate);
+  const endUTC = parseUTCDate(endDate);
+  // Include entire end day by going to next day at 00:00 UTC
+  endUTC.setUTCDate(endUTC.getUTCDate() + 1);
+
+  return (delivery) => {
+    const delDate = new Date(delivery.timestamp);
+    return delDate >= startUTC && delDate < endUTC;
+  };
+}
+
 document.getElementById('deliveryReportForm')?.addEventListener('submit', async (e) => {
   e.preventDefault();
 
@@ -1261,17 +1282,20 @@ document.getElementById('deliveryReportForm')?.addEventListener('submit', async 
       companyMap[c.name] = { id: c.id, unitPrice: parseFloat(c.unit_price) || 0 };
     });
 
-    const startDateObj = new Date(startDate);
-    const endDateObj = new Date(endDate);
     const isAllCompanies = companyId === 'all';
+    const dateFilter = getDateRangeFilterFunction(startDate, endDate);
 
-    // Filter deliveries
+    // Filter deliveries (with timezone fix)
     let filteredDeliveries = deliveries.filter(del => {
-      const delDate = new Date(del.timestamp);
-      const inDateRange = delDate >= startDateObj && delDate <= endDateObj;
+      const inDateRange = dateFilter(del);
       const inCompany = isAllCompanies || companyMap[del.company]?.id === parseInt(companyId);
+      // Debug logging
+      if (!inDateRange) console.log('Filtered out (date):', del.timestamp, 'Range:', startDate, 'to', endDate);
+      if (!inCompany) console.log('Filtered out (company):', del.company, 'Selected:', companyId);
       return inDateRange && inCompany;
     });
+
+    console.log('Total in DB:', deliveries.length, '| Filtered:', filteredDeliveries.length);
 
     if (filteredDeliveries.length === 0) {
       showNotification('No deliveries found for the selected criteria', 'error');
@@ -1522,6 +1546,151 @@ document.getElementById('reportPdfBtn')?.addEventListener('click', () => {
   win.document.write(html);
   setTimeout(() => { win.print(); }, 500);
 });
+
+// ============================================
+// DELIVERY HISTORY
+// ============================================
+
+let allDeliveries = [];
+let allCompanies = [];
+
+// Load data on page load
+async function loadHistoryData() {
+  try {
+    const [delRes, comRes] = await Promise.all([
+      fetch('/api/deliveries', { headers: getHeaders() }),
+      fetch('/api/companies/all', { headers: getHeaders() })
+    ]);
+
+    allDeliveries = delRes.ok ? await delRes.json() : [];
+    allCompanies = comRes.ok ? await comRes.json() : [];
+  } catch (e) {
+    console.error('Error loading history data:', e);
+  }
+}
+
+// Quick filter handlers
+document.getElementById('historyTodayBtn')?.addEventListener('click', () => {
+  const today = new Date().toISOString().split('T')[0];
+  showDeliveryHistory(today, today, 'Today');
+});
+
+document.getElementById('historyWeekBtn')?.addEventListener('click', () => {
+  const today = new Date();
+  const dayOfWeek = today.getDay();
+  const firstDay = new Date(today);
+  firstDay.setDate(today.getDate() - dayOfWeek);
+
+  const start = firstDay.toISOString().split('T')[0];
+  const end = today.toISOString().split('T')[0];
+  showDeliveryHistory(start, end, 'This Week');
+});
+
+document.getElementById('historyLastWeekBtn')?.addEventListener('click', () => {
+  const today = new Date();
+  const dayOfWeek = today.getDay();
+  const lastWeekEnd = new Date(today);
+  lastWeekEnd.setDate(today.getDate() - dayOfWeek - 1);
+  const lastWeekStart = new Date(lastWeekEnd);
+  lastWeekStart.setDate(lastWeekEnd.getDate() - 6);
+
+  const start = lastWeekStart.toISOString().split('T')[0];
+  const end = lastWeekEnd.toISOString().split('T')[0];
+  showDeliveryHistory(start, end, 'Last Week');
+});
+
+document.getElementById('historyMonthBtn')?.addEventListener('click', () => {
+  const today = new Date();
+  const firstDay = new Date(today.getFullYear(), today.getMonth(), 1);
+
+  const start = firstDay.toISOString().split('T')[0];
+  const end = today.toISOString().split('T')[0];
+  showDeliveryHistory(start, end, 'This Month');
+});
+
+document.getElementById('historyJumpBtn')?.addEventListener('click', () => {
+  const jumpDate = document.getElementById('historyJumpDate').value;
+  if (!jumpDate) {
+    showNotification('Please select a date', 'error');
+    return;
+  }
+  showDeliveryHistory(jumpDate, jumpDate, `${new Date(jumpDate).toLocaleDateString()}`);
+});
+
+function showDeliveryHistory(startDate, endDate, label) {
+  const dateFilter = getDateRangeFilterFunction(startDate, endDate);
+
+  // Create company map
+  const companyMap = {};
+  allCompanies.forEach(c => {
+    companyMap[c.name] = { id: c.id, unitPrice: parseFloat(c.unit_price) || 0 };
+  });
+
+  // Filter deliveries
+  let filtered = allDeliveries.filter(del => {
+    const inDateRange = dateFilter(del);
+    return inDateRange;
+  });
+
+  // Sort by date
+  filtered.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
+
+  // Add calculated fields
+  filtered = filtered.map(del => {
+    const unitPrice = companyMap[del.company]?.unitPrice || 0;
+    const qty = del.bottles_delivered || del.delivered || 0;
+    const amount = qty * unitPrice;
+    const returns = del.bottles_returned || del.returned || 0;
+    const earnings = amount;
+
+    return {
+      ...del,
+      unitPrice,
+      qty,
+      amount,
+      returns,
+      earnings
+    };
+  });
+
+  renderDeliveryHistory(filtered, label, startDate, endDate);
+}
+
+function renderDeliveryHistory(deliveries, label, startDate, endDate) {
+  const container = document.getElementById('historyContainer');
+  const empty = document.getElementById('historyEmpty');
+  const tbody = document.getElementById('historyTableBody');
+  const dateRangeEl = document.getElementById('historyDateRange');
+
+  if (deliveries.length === 0) {
+    container.style.display = 'none';
+    empty.style.display = 'block';
+    return;
+  }
+
+  container.style.display = 'block';
+  empty.style.display = 'none';
+
+  if (startDate === endDate) {
+    dateRangeEl.textContent = `${label} (${new Date(startDate).toLocaleDateString()}) - ${deliveries.length} deliveries`;
+  } else {
+    dateRangeEl.textContent = `${label} (${new Date(startDate).toLocaleDateString()} - ${new Date(endDate).toLocaleDateString()}) - ${deliveries.length} deliveries`;
+  }
+
+  tbody.innerHTML = deliveries.map(del => `
+    <tr style="border-bottom: 1px solid #ddd;">
+      <td style="padding: 8px; border: 1px solid #ddd;">${new Date(del.timestamp).toLocaleDateString()}</td>
+      <td style="padding: 8px; border: 1px solid #ddd;">${del.dr_number || '-'}</td>
+      <td style="padding: 8px; border: 1px solid #ddd;">${del.company}</td>
+      <td style="padding: 8px; border: 1px solid #ddd; text-align: center;">${del.qty}</td>
+      <td style="padding: 8px; border: 1px solid #ddd;">Water Refill</td>
+      <td style="padding: 8px; border: 1px solid #ddd; text-align: right;">₱${del.unitPrice.toFixed(2)}</td>
+      <td style="padding: 8px; border: 1px solid #ddd; text-align: right;">₱${del.amount.toFixed(2)}</td>
+      <td style="padding: 8px; border: 1px solid #ddd; text-align: center;">${del.returns}</td>
+      <td style="padding: 8px; border: 1px solid #ddd; text-align: right; color: #28a745; font-weight: bold;">₱${del.earnings.toFixed(2)}</td>
+    </tr>
+  `).join('');
+}
 
 function setupEventListeners() {
   document.querySelectorAll('.overview-tab').forEach(tab => {
