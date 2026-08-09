@@ -931,11 +931,16 @@ async function toggleBillingStatus(id) {
     if (response.ok) {
       const billing = await response.json();
       document.getElementById('editBilId').value = id;
-      document.getElementById('billingStatusText').textContent = `Current status: ${billing.paid ? 'Paid' : 'Unpaid'}`;
+      // Database field is is_paid (SQLite returns it as is_paid)
+      const isPaid = billing.is_paid || billing.paid;
+      document.getElementById('billingStatusText').textContent = `Current status: ${isPaid ? 'Paid' : 'Unpaid'}`;
       openModal('editBillingModal');
+    } else {
+      showNotification('Error loading billing status', 'error');
     }
   } catch (error) {
     console.error('Error loading billing:', error);
+    showNotification('Connection error', 'error');
   }
 }
 
@@ -948,10 +953,18 @@ document.getElementById('editBillingForm')?.addEventListener('submit', async (e)
     const response = await fetch(`/api/billing-statements/${id}`, { headers: getHeaders() });
     const billing = response.ok ? await response.json() : null;
 
+    if (!billing) {
+      showNotification('Error: Billing statement not found', 'error');
+      return;
+    }
+
+    // Database field is is_paid (SQLite returns it as is_paid)
+    const currentIsPaid = billing.is_paid || billing.paid;
+
     const updateResponse = await fetch(`/api/billing-statements/${id}`, {
       method: 'PUT',
       headers: getHeaders(),
-      body: JSON.stringify({ isPaid: !billing.paid })
+      body: JSON.stringify({ isPaid: !currentIsPaid })
     });
 
     if (updateResponse.ok) {
