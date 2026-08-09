@@ -662,8 +662,17 @@ document.getElementById('deliveryForm')?.addEventListener('submit', async (e) =>
       console.log('Calling loadDashboardData...');
       await loadDashboardData();
     } else {
-      const error = await response.json().catch(() => ({}));
-      showNotification(error.message || 'Error adding delivery', 'error');
+      const errorText = await response.text();
+      let errorMsg = 'Error adding delivery';
+      try {
+        const errorJson = JSON.parse(errorText);
+        errorMsg = errorJson.error || errorJson.message || errorMsg;
+      } catch (e) {
+        errorMsg = errorText || errorMsg;
+      }
+      console.error('Add delivery error:', response.status, errorMsg);
+      console.log('Sent data:', data);
+      showNotification(errorMsg, 'error');
     }
   } catch (error) {
     console.error('Error adding delivery:', error);
@@ -849,7 +858,8 @@ async function showCompanyStats(id) {
 
     const stats = { delivered: 0, returned: 0, count: 0 };
     deliveries.forEach(del => {
-      if (del.company_id === id) {
+      // Match by company NAME (not ID) since API returns company name, not ID
+      if (del.company === company.name) {
         stats.count++;
         // Use correct field names from API (bottles_delivered/bottles_returned)
         stats.delivered += (del.bottles_delivered || del.delivered || 0);
