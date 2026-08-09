@@ -1204,20 +1204,47 @@ function showNotification(message, type = 'success') {
   }, 3000);
 }
 
+
 // ============================================
-// DELIVERY REPORTS
+// SETUP EVENT LISTENERS
+// ============================================
+
+// ============================================
+// UNIFIED DELIVERY REPORT
 // ============================================
 
 let currentReportData = null;
 
-document.getElementById('reportsForm')?.addEventListener('submit', async (e) => {
+// Populate company dropdown on page load
+document.addEventListener('DOMContentLoaded', async () => {
+  const companySelect = document.getElementById('repCompany');
+  if (companySelect && companySelect.options.length === 1) {
+    try {
+      const response = await fetch('/api/companies/all', { headers: getHeaders() });
+      if (response.ok) {
+        const companies = await response.json();
+        companies.forEach(c => {
+          const option = document.createElement('option');
+          option.value = c.id;
+          option.textContent = c.name;
+          companySelect.appendChild(option);
+        });
+      }
+    } catch (e) {
+      console.error('Error loading companies:', e);
+    }
+  }
+});
+
+document.getElementById('deliveryReportForm')?.addEventListener('submit', async (e) => {
   e.preventDefault();
 
-  const startDate = document.getElementById('reportStartDate').value;
-  const endDate = document.getElementById('reportEndDate').value;
+  const startDate = document.getElementById('repStartDate').value;
+  const endDate = document.getElementById('repEndDate').value;
+  const companyId = document.getElementById('repCompany').value;
 
   if (!startDate || !endDate) {
-    showNotification('Please select both start and end dates', 'error');
+    showNotification('Please select start and end dates', 'error');
     return;
   }
 
@@ -1228,46 +1255,60 @@ document.getElementById('reportsForm')?.addEventListener('submit', async (e) => 
     const companiesResponse = await fetch('/api/companies/all', { headers: getHeaders() });
     const companies = companiesResponse.ok ? await companiesResponse.json() : [];
 
-    const startDateObj = new Date(startDate);
-    const endDateObj = new Date(endDate);
-
-    // Group deliveries by company
-    const reportData = {};
-    companies.forEach(com => {
-      reportData[com.name] = {
-        id: com.id,
-        name: com.name,
-        unitPrice: parseFloat(com.unit_price) || 0,
-        delivered: 0,
-        returned: 0
-      };
+    // Create company map
+    const companyMap = {};
+    companies.forEach(c => {
+      companyMap[c.name] = { id: c.id, unitPrice: parseFloat(c.unit_price) || 0 };
     });
 
-    // Sum deliveries within date range
-    deliveries.forEach(del => {
+    const startDateObj = new Date(startDate);
+    const endDateObj = new Date(endDate);
+    const isAllCompanies = companyId === 'all';
+
+    // Filter deliveries
+    let filteredDeliveries = deliveries.filter(del => {
       const delDate = new Date(del.timestamp);
-      if (delDate >= startDateObj && delDate <= endDateObj) {
-        const companyName = del.company || 'Unknown';
-        if (!reportData[companyName]) {
-          reportData[companyName] = {
-            name: companyName,
-            unitPrice: 0,
-            delivered: 0,
-            returned: 0
-          };
-        }
-        reportData[companyName].delivered += (del.bottles_delivered || del.delivered || 0);
-        reportData[companyName].returned += (del.bottles_returned || del.returned || 0);
-      }
+      const inDateRange = delDate >= startDateObj && delDate <= endDateObj;
+      const inCompany = isAllCompanies || companyMap[del.company]?.id === parseInt(companyId);
+      return inDateRange && inCompany;
+    });
+
+    if (filteredDeliveries.length === 0) {
+      showNotification('No deliveries found for the selected criteria', 'error');
+      return;
+    }
+
+    // Sort by date
+    filteredDeliveries.sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp));
+
+    // Add calculated fields
+    filteredDeliveries = filteredDeliveries.map(del => {
+      const unitPrice = companyMap[del.company]?.unitPrice || 0;
+      const qty = del.bottles_delivered || del.delivered || 0;
+      const amount = qty * unitPrice;
+      const returns = del.bottles_returned || del.returned || 0;
+      const earnings = amount; // earnings = amount (delivered × price)
+
+      return {
+        ...del,
+        unitPrice,
+        qty,
+        amount,
+        returns,
+        earnings
+      };
     });
 
     currentReportData = {
       startDate,
       endDate,
-      data: reportData
+      isAllCompanies,
+      selectedCompanyId: companyId,
+      selectedCompanyName: isAllCompanies ? null : document.querySelector(`#repCompany option[value="${companyId}"]`)?.textContent,
+      deliveries: filteredDeliveries
     };
 
-    renderReport(reportData);
+    renderDeliveryReport(currentReportData);
     showNotification('✓ Report generated successfully', 'success');
   } catch (error) {
     console.error('Error generating report:', error);
@@ -1275,390 +1316,207 @@ document.getElementById('reportsForm')?.addEventListener('submit', async (e) => 
   }
 });
 
-function renderReport(reportData) {
-  const tbody = document.getElementById('reportBody');
-  const table = document.getElementById('reportTable');
+function renderDeliveryReport(reportData) {
+  const tbody = document.getElementById('reportTableBody');
+  const tfoot = document.getElementById('reportTableFooter');
+  const container = document.getElementById('reportContainer');
   const empty = document.getElementById('reportEmpty');
-  const exportExcelBtn = document.getElementById('exportReportExcelBtn');
-  const exportPdfBtn = document.getElementById('exportReportPdfBtn');
+  const companyHeader = document.getElementById('companyColHeader');
 
-  const rows = Object.values(reportData).filter(d => d.delivered > 0 || d.returned > 0);
-
-  if (rows.length === 0) {
-    table.style.display = 'none';
+  if (reportData.deliveries.length === 0) {
+    container.style.display = 'none';
     empty.style.display = 'block';
-    exportExcelBtn.style.display = 'none';
-    exportPdfBtn.style.display = 'none';
     return;
   }
 
-  table.style.display = 'table';
+  container.style.display = 'block';
   empty.style.display = 'none';
-  exportExcelBtn.style.display = 'inline-block';
-  exportPdfBtn.style.display = 'inline-block';
 
-  tbody.innerHTML = rows.map(d => {
-    const totalAmount = d.delivered * d.unitPrice;
+  // Show/hide company column based on filter
+  if (reportData.isAllCompanies) {
+    companyHeader.style.display = '';
+  } else {
+    companyHeader.style.display = 'none';
+  }
+
+  // Render body rows
+  tbody.innerHTML = reportData.deliveries.map(del => {
+    const companyCol = reportData.isAllCompanies
+      ? `<td style="padding: 8px; border: 1px solid #ddd;">${del.company}</td>`
+      : '';
+
     return `
-      <tr>
-        <td>${d.name}</td>
-        <td>${d.delivered}</td>
-        <td>${d.returned}</td>
-        <td>₱${totalAmount.toFixed(2)}</td>
+      <tr style="border-bottom: 1px solid #ddd;">
+        <td style="padding: 8px; border: 1px solid #ddd;">${new Date(del.timestamp).toLocaleDateString()}</td>
+        <td style="padding: 8px; border: 1px solid #ddd;">${del.dr_number || '-'}</td>
+        ${companyCol}
+        <td style="padding: 8px; border: 1px solid #ddd; text-align: center;">${del.qty}</td>
+        <td style="padding: 8px; border: 1px solid #ddd;">Water Refill</td>
+        <td style="padding: 8px; border: 1px solid #ddd; text-align: right;">₱${del.unitPrice.toFixed(2)}</td>
+        <td style="padding: 8px; border: 1px solid #ddd; text-align: right;">₱${del.amount.toFixed(2)}</td>
+        <td style="padding: 8px; border: 1px solid #ddd; text-align: center;">${del.returns}</td>
+        <td style="padding: 8px; border: 1px solid #ddd; text-align: right; color: #28a745; font-weight: bold;">₱${del.earnings.toFixed(2)}</td>
       </tr>
     `;
   }).join('');
+
+  // Calculate totals
+  const totalQty = reportData.deliveries.reduce((sum, d) => sum + d.qty, 0);
+  const totalAmount = reportData.deliveries.reduce((sum, d) => sum + d.amount, 0);
+  const totalReturns = reportData.deliveries.reduce((sum, d) => sum + d.returns, 0);
+  const totalEarnings = reportData.deliveries.reduce((sum, d) => sum + d.earnings, 0);
+
+  // Update totals
+  document.getElementById('totalQty').textContent = totalQty;
+  document.getElementById('totalAmount').textContent = `₱${totalAmount.toFixed(2)}`;
+  document.getElementById('totalReturns').textContent = totalReturns;
+  document.getElementById('totalEarnings').textContent = `₱${totalEarnings.toFixed(2)}`;
+
+  // Update footer colspan based on company column visibility
+  const footerFirstTd = tfoot.querySelector('tr td:first-child');
+  if (reportData.isAllCompanies) {
+    footerFirstTd.colSpan = 3;
+  } else {
+    footerFirstTd.colSpan = 2;
+  }
 }
 
-document.getElementById('exportReportExcelBtn')?.addEventListener('click', () => {
+// Export to Excel
+document.getElementById('reportExcelBtn')?.addEventListener('click', () => {
   if (!currentReportData) {
     showNotification('Please generate a report first', 'error');
     return;
   }
 
-  const { startDate, endDate, data } = currentReportData;
-  const rows = Object.values(data).filter(d => d.delivered > 0 || d.returned > 0);
+  const { startDate, endDate, isAllCompanies, deliveries } = currentReportData;
 
   let csv = 'Delivery Report\n';
   csv += `Date Range: ${new Date(startDate).toLocaleDateString()} - ${new Date(endDate).toLocaleDateString()}\n\n`;
-  csv += 'Company,Delivered,Returned,Total Amount\n';
 
-  let totalDelivered = 0;
-  let totalReturned = 0;
-  let grandTotal = 0;
+  // Headers
+  if (isAllCompanies) {
+    csv += 'Date,DR #,Company,Qty,Particulars,Unit Price,Amount,Returns,Earnings\n';
+  } else {
+    csv += 'Date,DR #,Qty,Particulars,Unit Price,Amount,Returns,Earnings\n';
+  }
 
-  rows.forEach(d => {
-    const amount = d.delivered * d.unitPrice;
-    totalDelivered += d.delivered;
-    totalReturned += d.returned;
-    grandTotal += amount;
-    csv += `${d.name},${d.delivered},${d.returned},${amount.toFixed(2)}\n`;
+  // Data
+  let totalQty = 0, totalAmount = 0, totalReturns = 0, totalEarnings = 0;
+  deliveries.forEach(d => {
+    totalQty += d.qty;
+    totalAmount += d.amount;
+    totalReturns += d.returns;
+    totalEarnings += d.earnings;
+
+    if (isAllCompanies) {
+      csv += `${new Date(d.timestamp).toLocaleDateString()},"${d.dr_number || '-'}","${d.company}",${d.qty},"Water Refill",₱${d.unitPrice.toFixed(2)},₱${d.amount.toFixed(2)},${d.returns},₱${d.earnings.toFixed(2)}\n`;
+    } else {
+      csv += `${new Date(d.timestamp).toLocaleDateString()},"${d.dr_number || '-'}",${d.qty},"Water Refill",₱${d.unitPrice.toFixed(2)},₱${d.amount.toFixed(2)},${d.returns},₱${d.earnings.toFixed(2)}\n`;
+    }
   });
 
-  csv += `\nTOTAL,${totalDelivered},${totalReturned},${grandTotal.toFixed(2)}\n`;
+  // Totals
+  if (isAllCompanies) {
+    csv += `\n"TOTAL","",""," ${totalQty}","",,"₱${totalAmount.toFixed(2)}",${totalReturns},"₱${totalEarnings.toFixed(2)}"\n`;
+  } else {
+    csv += `\n"TOTAL","","${totalQty}","",,"₱${totalAmount.toFixed(2)}",${totalReturns},"₱${totalEarnings.toFixed(2)}"\n`;
+  }
 
   const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
   const link = document.createElement('a');
   const url = URL.createObjectURL(blob);
   link.setAttribute('href', url);
-  link.setAttribute('download', `delivery-report-${new Date(startDate).toISOString().split('T')[0]}.csv`);
+  link.setAttribute('download', `delivery_report_${new Date().toISOString().split('T')[0]}.csv`);
   link.click();
-  showNotification('✓ Report exported to Excel', 'success');
 });
 
-document.getElementById('exportReportPdfBtn')?.addEventListener('click', () => {
+// Export to PDF
+document.getElementById('reportPdfBtn')?.addEventListener('click', () => {
   if (!currentReportData) {
     showNotification('Please generate a report first', 'error');
     return;
   }
 
-  const { startDate, endDate, data } = currentReportData;
-  const rows = Object.values(data).filter(d => d.delivered > 0 || d.returned > 0);
-
-  const startDateStr = new Date(startDate).toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
-  const endDateStr = new Date(endDate).toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
-
-  let tableRows = '';
-  let totalDelivered = 0;
-  let totalReturned = 0;
-  let grandTotal = 0;
-
-  rows.forEach(d => {
-    const amount = d.delivered * d.unitPrice;
-    totalDelivered += d.delivered;
-    totalReturned += d.returned;
-    grandTotal += amount;
-    tableRows += `
-      <tr>
-        <td>${d.name}</td>
-        <td style="text-align: center;">${d.delivered}</td>
-        <td style="text-align: center;">${d.returned}</td>
-        <td style="text-align: right;">₱${amount.toFixed(2)}</td>
-      </tr>
-    `;
-  });
+  const { startDate, endDate, isAllCompanies, deliveries } = currentReportData;
+  const win = window.open('', '', 'height=800,width=1000');
 
   let html = `
     <html>
-      <head>
-        <style>
-          body { font-family: Arial, sans-serif; margin: 40px; color: #333; }
-          .header { text-align: center; margin-bottom: 30px; }
-          .report-title { font-size: 18px; font-weight: bold; margin-bottom: 10px; }
-          .date-range { font-size: 14px; color: #666; }
-          table { width: 100%; border-collapse: collapse; margin-top: 20px; }
-          th { background-color: #667eea; color: white; padding: 12px; text-align: left; font-weight: bold; }
-          td { padding: 10px 12px; border-bottom: 1px solid #ddd; }
-          tr:nth-child(even) { background-color: #f9f9f9; }
-          .total-row { background-color: #fff; border-top: 2px solid #d32f2f; border-bottom: 2px solid #d32f2f; font-weight: bold; color: #d32f2f; }
-          .footer { margin-top: 30px; text-align: center; color: #999; font-size: 12px; }
-        </style>
-      </head>
-      <body>
-        <div class="header">
-          <div class="report-title">Delivery Report</div>
-          <div class="date-range">Report Period: ${startDateStr} to ${endDateStr}</div>
-          <div style="margin-top: 10px; font-size: 12px; color: #999;">Generated on ${new Date().toLocaleString()}</div>
-        </div>
-
-        <table>
-          <thead>
-            <tr>
-              <th>Company</th>
-              <th>Delivered</th>
-              <th>Returned</th>
-              <th>Total Amount</th>
-            </tr>
-          </thead>
-          <tbody>
-            ${tableRows}
-            <tr class="total-row">
-              <td>TOTAL</td>
-              <td style="text-align: center;">${totalDelivered}</td>
-              <td style="text-align: center;">${totalReturned}</td>
-              <td style="text-align: right;">₱${grandTotal.toFixed(2)}</td>
-            </tr>
-          </tbody>
-        </table>
-
-        <div class="footer">
-          <p>Eau Cure - Water Station Delivery Tracker</p>
-        </div>
-      </body>
-    </html>
+    <head>
+      <title>Delivery Report</title>
+      <style>
+        body { font-family: Arial, sans-serif; padding: 20px; font-size: 11px; }
+        h1 { font-size: 16px; margin: 0 0 10px 0; }
+        p { margin: 5px 0; }
+        table { width: 100%; border-collapse: collapse; margin-top: 10px; }
+        th, td { padding: 8px; border: 1px solid #000; text-align: left; }
+        th { background: #f0f0f0; font-weight: bold; }
+        .text-right { text-align: right; }
+        .text-center { text-align: center; }
+        .total-row { font-weight: bold; background: #f0f0f0; }
+        .total-row td { border-top: 2px solid #000; }
+      </style>
+    </head>
+    <body>
+      <h1>Delivery Report</h1>
+      <p><strong>Date Range:</strong> ${new Date(startDate).toLocaleDateString()} to ${new Date(endDate).toLocaleDateString()}</p>
+      <p><strong>Generated:</strong> ${new Date().toLocaleString()}</p>
+      <table>
+        <thead>
+          <tr>
+            <th>Date</th>
+            <th>DR #</th>
+            ${isAllCompanies ? '<th>Company</th>' : ''}
+            <th class="text-center">Qty</th>
+            <th>Particulars</th>
+            <th class="text-right">Unit Price</th>
+            <th class="text-right">Amount</th>
+            <th class="text-center">Returns</th>
+            <th class="text-right">Earnings</th>
+          </tr>
+        </thead>
+        <tbody>
   `;
 
-  const printWindow = window.open('', '', 'height=800,width=900');
-  printWindow.document.write(html);
-  printWindow.document.close();
-  printWindow.print();
-  showNotification('✓ Report ready to print/save as PDF', 'success');
-});
-
-// ============================================
-// SETUP EVENT LISTENERS
-// ============================================
-
-// ============================================
-// EARNINGS REPORT
-// ============================================
-
-let currentEarningsData = null;
-
-// Tab switching
-document.getElementById('recordsTab')?.addEventListener('click', () => {
-  document.getElementById('recordsContent').style.display = 'block';
-  document.getElementById('earningsContent').style.display = 'none';
-  document.getElementById('recordsTab').style.borderBottomColor = '#667eea';
-  document.getElementById('recordsTab').style.color = '#333';
-  document.getElementById('recordsTab').style.fontWeight = 'bold';
-  document.getElementById('earningsTab').style.borderBottomColor = 'transparent';
-  document.getElementById('earningsTab').style.color = '#666';
-  document.getElementById('earningsTab').style.fontWeight = 'normal';
-});
-
-document.getElementById('earningsTab')?.addEventListener('click', () => {
-  document.getElementById('recordsContent').style.display = 'none';
-  document.getElementById('earningsContent').style.display = 'block';
-  document.getElementById('earningsTab').style.borderBottomColor = '#667eea';
-  document.getElementById('earningsTab').style.color = '#333';
-  document.getElementById('earningsTab').style.fontWeight = 'bold';
-  document.getElementById('recordsTab').style.borderBottomColor = 'transparent';
-  document.getElementById('recordsTab').style.color = '#666';
-  document.getElementById('recordsTab').style.fontWeight = 'normal';
-});
-
-document.getElementById('earningsForm')?.addEventListener('submit', async (e) => {
-  e.preventDefault();
-
-  const startDate = document.getElementById('earStartDate').value;
-  const endDate = document.getElementById('earEndDate').value;
-  const groupBy = document.getElementById('earGroupBy').value;
-
-  if (!startDate || !endDate) {
-    showNotification('Please select both start and end dates', 'error');
-    return;
-  }
-
-  try {
-    const deliveriesResponse = await fetch('/api/deliveries', { headers: getHeaders() });
-    const deliveries = deliveriesResponse.ok ? await deliveriesResponse.json() : [];
-
-    const companiesResponse = await fetch('/api/companies/all', { headers: getHeaders() });
-    const companies = companiesResponse.ok ? await companiesResponse.json() : [];
-
-    // Create company map for quick lookup
-    const companyMap = {};
-    companies.forEach(c => {
-      companyMap[c.name] = { unitPrice: parseFloat(c.unit_price) || 0 };
-    });
-
-    const startDateObj = new Date(startDate);
-    const endDateObj = new Date(endDate);
-
-    // Filter and group deliveries
-    const earnings = {};
-
-    deliveries.forEach(del => {
-      const delDate = new Date(del.timestamp);
-      if (delDate >= startDateObj && delDate <= endDateObj) {
-        const companyName = del.company || 'Unknown';
-        const unitPrice = companyMap[companyName]?.unitPrice || 0;
-        const amount = (del.bottles_delivered || del.delivered || 0) * unitPrice;
-
-        let period = '';
-        if (groupBy === 'day') {
-          period = delDate.toLocaleDateString();
-        } else if (groupBy === 'week') {
-          const d = new Date(delDate);
-          const day = d.getDay();
-          const diff = d.getDate() - day;
-          const weekStart = new Date(d.setDate(diff));
-          period = `Week of ${weekStart.toLocaleDateString()}`;
-        } else {
-          period = companyName;
-        }
-
-        const key = `${period}|${companyName}`;
-        if (!earnings[key]) {
-          earnings[key] = {
-            period,
-            company: companyName,
-            delivered: 0,
-            unitPrice,
-            amount: 0
-          };
-        }
-        earnings[key].delivered += (del.bottles_delivered || del.delivered || 0);
-        earnings[key].amount += amount;
-      }
-    });
-
-    currentEarningsData = {
-      startDate,
-      endDate,
-      data: Object.values(earnings),
-      groupBy
-    };
-
-    renderEarningsReport(currentEarningsData);
-    showNotification('✓ Earnings report generated successfully', 'success');
-  } catch (error) {
-    console.error('Error generating earnings report:', error);
-    showNotification('Error generating earnings report', 'error');
-  }
-});
-
-function renderEarningsReport(earningsData) {
-  const tbody = document.getElementById('earningsBody');
-  const table = document.getElementById('earningsTableContainer');
-  const empty = document.getElementById('earningsEmpty');
-  const rows = earningsData.data;
-
-  if (rows.length === 0) {
-    table.style.display = 'none';
-    empty.style.display = 'block';
-    return;
-  }
-
-  table.style.display = 'block';
-  empty.style.display = 'none';
-
-  tbody.innerHTML = rows.map(d => `
-    <tr>
-      <td>${d.period}</td>
-      <td>${d.company}</td>
-      <td>${d.delivered}</td>
-      <td>₱${d.unitPrice.toFixed(2)}</td>
-      <td style="font-weight: bold; color: #28a745;">₱${d.amount.toFixed(2)}</td>
-    </tr>
-  `).join('');
-
-  // Update summary
-  const totalAmount = rows.reduce((sum, r) => sum + r.amount, 0);
-  const totalDelivered = rows.reduce((sum, r) => sum + r.delivered, 0);
-  const startDate = new Date(earningsData.startDate);
-  const endDate = new Date(earningsData.endDate);
-  const days = Math.ceil((endDate - startDate) / (1000 * 60 * 60 * 24)) + 1;
-  const avgDaily = totalAmount / (days || 1);
-
-  document.getElementById('earningsSummaryTotal').textContent = `₱${totalAmount.toFixed(2)}`;
-  document.getElementById('earningsSummaryDelivered').textContent = totalDelivered;
-  document.getElementById('earningsSummaryAvg').textContent = `₱${avgDaily.toFixed(2)}`;
-}
-
-document.getElementById('earningsExcelBtn')?.addEventListener('click', () => {
-  if (!currentEarningsData) {
-    showNotification('Please generate a report first', 'error');
-    return;
-  }
-
-  const { startDate, endDate, data } = currentEarningsData;
-  let csv = 'Earnings Report\n';
-  csv += `Date Range: ${new Date(startDate).toLocaleDateString()} - ${new Date(endDate).toLocaleDateString()}\n\n`;
-  csv += 'Period,Company,Delivered,Unit Price,Total Earnings\n';
-
-  let totalAmount = 0;
-  data.forEach(d => {
-    csv += `"${d.period}","${d.company}",${d.delivered},₱${d.unitPrice.toFixed(2)},₱${d.amount.toFixed(2)}\n`;
+  let totalQty = 0, totalAmount = 0, totalReturns = 0, totalEarnings = 0;
+  deliveries.forEach(d => {
+    totalQty += d.qty;
     totalAmount += d.amount;
-  });
+    totalReturns += d.returns;
+    totalEarnings += d.earnings;
 
-  csv += `\n\nTOTAL EARNINGS,,,, ₱${totalAmount.toFixed(2)}\n`;
-
-  const blob = new Blob([csv], { type: 'text/csv' });
-  const url = window.URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = `earnings_report_${new Date().toISOString().split('T')[0]}.csv`;
-  a.click();
-});
-
-document.getElementById('earningsPdfBtn')?.addEventListener('click', () => {
-  if (!currentEarningsData) {
-    showNotification('Please generate a report first', 'error');
-    return;
-  }
-
-  const { startDate, endDate, data } = currentEarningsData;
-  const win = window.open('', '', 'height=600,width=900');
-
-  let html = `
-    <html><head><title>Earnings Report</title></head><body style="font-family: Arial, sans-serif; padding: 20px;">
-    <h1>Earnings Report</h1>
-    <p><strong>Date Range:</strong> ${new Date(startDate).toLocaleDateString()} - ${new Date(endDate).toLocaleDateString()}</p>
-    <table border="1" cellpadding="8" style="width: 100%; border-collapse: collapse;">
-    <tr style="background: #f0f0f0;">
-      <th>Period</th>
-      <th>Company</th>
-      <th>Delivered</th>
-      <th>Unit Price</th>
-      <th>Total Earnings</th>
-    </tr>
-  `;
-
-  let totalAmount = 0;
-  data.forEach(d => {
-    totalAmount += d.amount;
+    const companyCol = isAllCompanies ? `<td>${d.company}</td>` : '';
     html += `
       <tr>
-        <td>${d.period}</td>
-        <td>${d.company}</td>
-        <td style="text-align: center;">${d.delivered}</td>
-        <td style="text-align: right;">₱${d.unitPrice.toFixed(2)}</td>
-        <td style="text-align: right; font-weight: bold; color: #28a745;">₱${d.amount.toFixed(2)}</td>
+        <td>${new Date(d.timestamp).toLocaleDateString()}</td>
+        <td>${d.dr_number || '-'}</td>
+        ${companyCol}
+        <td class="text-center">${d.qty}</td>
+        <td>Water Refill</td>
+        <td class="text-right">₱${d.unitPrice.toFixed(2)}</td>
+        <td class="text-right">₱${d.amount.toFixed(2)}</td>
+        <td class="text-center">${d.returns}</td>
+        <td class="text-right">₱${d.earnings.toFixed(2)}</td>
       </tr>
     `;
   });
 
   html += `
-    <tr style="background: #f0f0f0; font-weight: bold; font-size: 1.1em;">
-      <td colspan="4" style="text-align: right;">TOTAL EARNINGS:</td>
-      <td style="text-align: right; color: #28a745;">₱${totalAmount.toFixed(2)}</td>
-    </tr>
-    </table>
-    <p style="margin-top: 30px; color: #666; font-size: 0.9em;">Generated on ${new Date().toLocaleString()}</p>
-    </body></html>
+        </tbody>
+        <tfoot>
+          <tr class="total-row">
+            <td colspan="${isAllCompanies ? 3 : 2}">TOTAL</td>
+            <td class="text-center">${totalQty}</td>
+            <td></td>
+            <td></td>
+            <td class="text-right">₱${totalAmount.toFixed(2)}</td>
+            <td class="text-center">${totalReturns}</td>
+            <td class="text-right">₱${totalEarnings.toFixed(2)}</td>
+          </tr>
+        </tfoot>
+      </table>
+    </body>
+    </html>
   `;
 
   win.document.write(html);
