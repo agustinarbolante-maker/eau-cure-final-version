@@ -218,15 +218,28 @@ app.get('/api/stats/companies', async (req, res) => {
   }
 });
 
-app.post('/api/deliveries', authenticateToken, requireAdminOrHigher, async (req, res) => {
+app.post('/api/deliveries', authenticateToken, async (req, res) => {
   try {
-    const { company, bottlesDelivered, bottlesReturned, drNumber, timestamp } = req.body;
+    // Support both old and new field names
+    const company_id = req.body.company_id;
+    const delivered = req.body.delivered || req.body.bottlesDelivered;
+    const returned = req.body.returned || req.body.bottlesReturned;
+    const dr_number = req.body.dr_number || req.body.drNumber;
+    const timestamp = req.body.timestamp;
 
-    if (!company || bottlesDelivered === undefined || bottlesReturned === undefined || !drNumber) {
-      return res.status(400).json({ error: 'All fields are required' });
+    if (!company_id || delivered === undefined || returned === undefined || !dr_number) {
+      return res.status(400).json({ error: 'Missing required fields: company_id, delivered, returned, dr_number' });
     }
 
-    const id = await db.addDelivery(company, bottlesDelivered, bottlesReturned, drNumber, timestamp);
+    // Get company name from ID
+    const companies = await db.getAllCompaniesFromDB();
+    const company = companies.find(c => c.id === company_id);
+
+    if (!company) {
+      return res.status(400).json({ error: 'Company not found' });
+    }
+
+    const id = await db.addDelivery(company.name, delivered, returned, dr_number, timestamp);
     const deliveries = await db.getAllDeliveries();
     io.emit('deliveries_updated', deliveries);
     res.json({ id, message: 'Delivery added successfully' });

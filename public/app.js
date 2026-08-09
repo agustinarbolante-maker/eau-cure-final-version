@@ -327,31 +327,24 @@ function getLast7Days() {
 function renderDeliveries(deliveries) {
   const tbody = document.getElementById('recordsBody');
 
-  fetch('/api/companies/all', { headers: getHeaders() })
-    .then(r => r.ok ? r.json() : [])
-    .then(companies => {
-      const companyMap = {};
-      companies.forEach(com => { companyMap[com.id] = com.name; });
+  if (deliveries.length === 0) {
+    tbody.innerHTML = '<tr class="empty-state"><td colspan="6">No records yet</td></tr>';
+    return;
+  }
 
-      if (deliveries.length === 0) {
-        tbody.innerHTML = '<tr class="empty-state"><td colspan="6">No records yet</td></tr>';
-        return;
-      }
-
-      tbody.innerHTML = deliveries.map(del => `
-        <tr>
-          <td>${companyMap[del.company_id] || 'Unknown'}</td>
-          <td>${del.delivered}</td>
-          <td>${del.returned}</td>
-          <td>${del.dr_number || '-'}</td>
-          <td>${new Date(del.timestamp).toLocaleString()}</td>
-          <td class="actions">
-            <button class="btn btn-secondary btn-sm" onclick="editDelivery(${del.id})">Edit</button>
-            <button class="btn btn-danger btn-sm" onclick="deleteDelivery(${del.id})">Delete</button>
-          </td>
-        </tr>
-      `).join('');
-    });
+  tbody.innerHTML = deliveries.map(del => `
+    <tr>
+      <td>${del.company || 'Unknown'}</td>
+      <td>${del.bottles_delivered || del.delivered || 0}</td>
+      <td>${del.bottles_returned || del.returned || 0}</td>
+      <td>${del.dr_number || '-'}</td>
+      <td>${new Date(del.timestamp).toLocaleString()}</td>
+      <td class="actions">
+        <button class="btn btn-secondary btn-sm" onclick="editDelivery(${del.id})">Edit</button>
+        <button class="btn btn-danger btn-sm" onclick="deleteDelivery(${del.id})">Delete</button>
+      </td>
+    </tr>
+  `).join('');
 }
 
 function renderCompanies(companies) {
