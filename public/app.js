@@ -155,6 +155,9 @@ function switchPage(page) {
       loadCompanies();
     } else if (page === 'records') {
       loadDeliveries();
+      loadHistoryData();
+      // Initialize history tab as default
+      showRecordsTab('history');
     } else if (page === 'companies') {
       loadCompanies();
     } else if (page === 'billing') {
@@ -188,7 +191,8 @@ async function loadAllData() {
     loadCompanies(),
     loadDeliveries(),
     loadBillings(),
-    loadHistoryData()
+    loadHistoryData(),
+    loadDashboardData()
   ]);
 }
 
@@ -233,11 +237,18 @@ async function loadBillings() {
 
 async function loadDashboardData() {
   try {
-    const response = await fetch('/api/deliveries', { headers: getHeaders() });
+    // Always fetch fresh data from server
+    const response = await fetch('/api/deliveries', {
+      headers: getHeaders(),
+      cache: 'no-cache'
+    });
     if (response.ok) {
       const data = await response.json();
+      console.log('Dashboard loaded with', data.length, 'deliveries');
       calculateStats(data);
       renderDeliveryChart(data);
+    } else {
+      console.error('Dashboard data fetch failed:', response.status);
     }
   } catch (error) {
     console.error('Error loading dashboard data:', error);
@@ -1342,10 +1353,8 @@ document.getElementById('deliveryReportForm')?.addEventListener('submit', async 
 
 function renderDeliveryReport(reportData) {
   const tbody = document.getElementById('reportTableBody');
-  const tfoot = document.getElementById('reportTableFooter');
   const container = document.getElementById('reportContainer');
   const empty = document.getElementById('reportEmpty');
-  const companyHeader = document.getElementById('companyColHeader');
 
   if (reportData.deliveries.length === 0) {
     container.style.display = 'none';
@@ -1356,28 +1365,13 @@ function renderDeliveryReport(reportData) {
   container.style.display = 'block';
   empty.style.display = 'none';
 
-  // Show/hide company column based on filter
-  if (reportData.isAllCompanies) {
-    companyHeader.style.display = '';
-  } else {
-    companyHeader.style.display = 'none';
-  }
-
-  // Render body rows
+  // Render body rows - SIMPLIFIED: Company | DR # | Delivered | Returned | Earnings
   tbody.innerHTML = reportData.deliveries.map(del => {
-    const companyCol = reportData.isAllCompanies
-      ? `<td style="padding: 8px; border: 1px solid #ddd;">${del.company}</td>`
-      : '';
-
     return `
       <tr style="border-bottom: 1px solid #ddd;">
-        <td style="padding: 8px; border: 1px solid #ddd;">${new Date(del.timestamp).toLocaleDateString()}</td>
+        <td style="padding: 8px; border: 1px solid #ddd;">${del.company}</td>
         <td style="padding: 8px; border: 1px solid #ddd;">${del.dr_number || '-'}</td>
-        ${companyCol}
         <td style="padding: 8px; border: 1px solid #ddd; text-align: center;">${del.qty}</td>
-        <td style="padding: 8px; border: 1px solid #ddd;">Water Refill</td>
-        <td style="padding: 8px; border: 1px solid #ddd; text-align: right;">₱${del.unitPrice.toFixed(2)}</td>
-        <td style="padding: 8px; border: 1px solid #ddd; text-align: right;">₱${del.amount.toFixed(2)}</td>
         <td style="padding: 8px; border: 1px solid #ddd; text-align: center;">${del.returns}</td>
         <td style="padding: 8px; border: 1px solid #ddd; text-align: right; color: #28a745; font-weight: bold;">₱${del.earnings.toFixed(2)}</td>
       </tr>
@@ -1385,24 +1379,14 @@ function renderDeliveryReport(reportData) {
   }).join('');
 
   // Calculate totals
-  const totalQty = reportData.deliveries.reduce((sum, d) => sum + d.qty, 0);
-  const totalAmount = reportData.deliveries.reduce((sum, d) => sum + d.amount, 0);
-  const totalReturns = reportData.deliveries.reduce((sum, d) => sum + d.returns, 0);
+  const totalDelivered = reportData.deliveries.reduce((sum, d) => sum + d.qty, 0);
+  const totalReturned = reportData.deliveries.reduce((sum, d) => sum + d.returns, 0);
   const totalEarnings = reportData.deliveries.reduce((sum, d) => sum + d.earnings, 0);
 
   // Update totals
-  document.getElementById('totalQty').textContent = totalQty;
-  document.getElementById('totalAmount').textContent = `₱${totalAmount.toFixed(2)}`;
-  document.getElementById('totalReturns').textContent = totalReturns;
+  document.getElementById('totalDelivered').textContent = totalDelivered;
+  document.getElementById('totalReturned').textContent = totalReturned;
   document.getElementById('totalEarnings').textContent = `₱${totalEarnings.toFixed(2)}`;
-
-  // Update footer colspan based on company column visibility
-  const footerFirstTd = tfoot.querySelector('tr td:first-child');
-  if (reportData.isAllCompanies) {
-    footerFirstTd.colSpan = 3;
-  } else {
-    footerFirstTd.colSpan = 2;
-  }
 }
 
 // Export to Excel
@@ -1412,39 +1396,26 @@ document.getElementById('reportExcelBtn')?.addEventListener('click', () => {
     return;
   }
 
-  const { startDate, endDate, isAllCompanies, deliveries } = currentReportData;
+  const { startDate, endDate, deliveries } = currentReportData;
 
   let csv = 'Delivery Report\n';
   csv += `Date Range: ${new Date(startDate).toLocaleDateString()} - ${new Date(endDate).toLocaleDateString()}\n\n`;
 
-  // Headers
-  if (isAllCompanies) {
-    csv += 'Date,DR #,Company,Qty,Particulars,Unit Price,Amount,Returns,Earnings\n';
-  } else {
-    csv += 'Date,DR #,Qty,Particulars,Unit Price,Amount,Returns,Earnings\n';
-  }
+  // Headers - SIMPLIFIED: Company,DR #,Delivered,Returned,Earnings
+  csv += 'Company,DR #,Delivered,Returned,Earnings\n';
 
   // Data
-  let totalQty = 0, totalAmount = 0, totalReturns = 0, totalEarnings = 0;
+  let totalDelivered = 0, totalReturned = 0, totalEarnings = 0;
   deliveries.forEach(d => {
-    totalQty += d.qty;
-    totalAmount += d.amount;
-    totalReturns += d.returns;
+    totalDelivered += d.qty;
+    totalReturned += d.returns;
     totalEarnings += d.earnings;
 
-    if (isAllCompanies) {
-      csv += `${new Date(d.timestamp).toLocaleDateString()},"${d.dr_number || '-'}","${d.company}",${d.qty},"Water Refill",₱${d.unitPrice.toFixed(2)},₱${d.amount.toFixed(2)},${d.returns},₱${d.earnings.toFixed(2)}\n`;
-    } else {
-      csv += `${new Date(d.timestamp).toLocaleDateString()},"${d.dr_number || '-'}",${d.qty},"Water Refill",₱${d.unitPrice.toFixed(2)},₱${d.amount.toFixed(2)},${d.returns},₱${d.earnings.toFixed(2)}\n`;
-    }
+    csv += `"${d.company}","${d.dr_number || '-'}",${d.qty},${d.returns},"₱${d.earnings.toFixed(2)}"\n`;
   });
 
   // Totals
-  if (isAllCompanies) {
-    csv += `\n"TOTAL","",""," ${totalQty}","",,"₱${totalAmount.toFixed(2)}",${totalReturns},"₱${totalEarnings.toFixed(2)}"\n`;
-  } else {
-    csv += `\n"TOTAL","","${totalQty}","",,"₱${totalAmount.toFixed(2)}",${totalReturns},"₱${totalEarnings.toFixed(2)}"\n`;
-  }
+  csv += `\n"TOTAL","",${totalDelivered},${totalReturned},"₱${totalEarnings.toFixed(2)}"\n`;
 
   const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
   const link = document.createElement('a');
@@ -1461,7 +1432,7 @@ document.getElementById('reportPdfBtn')?.addEventListener('click', () => {
     return;
   }
 
-  const { startDate, endDate, isAllCompanies, deliveries } = currentReportData;
+  const { startDate, endDate, deliveries } = currentReportData;
   const win = window.open('', '', 'height=800,width=1000');
 
   let html = `
@@ -1488,37 +1459,27 @@ document.getElementById('reportPdfBtn')?.addEventListener('click', () => {
       <table>
         <thead>
           <tr>
-            <th>Date</th>
+            <th>Company</th>
             <th>DR #</th>
-            ${isAllCompanies ? '<th>Company</th>' : ''}
-            <th class="text-center">Qty</th>
-            <th>Particulars</th>
-            <th class="text-right">Unit Price</th>
-            <th class="text-right">Amount</th>
-            <th class="text-center">Returns</th>
+            <th class="text-center">Delivered</th>
+            <th class="text-center">Returned</th>
             <th class="text-right">Earnings</th>
           </tr>
         </thead>
         <tbody>
   `;
 
-  let totalQty = 0, totalAmount = 0, totalReturns = 0, totalEarnings = 0;
+  let totalDelivered = 0, totalReturned = 0, totalEarnings = 0;
   deliveries.forEach(d => {
-    totalQty += d.qty;
-    totalAmount += d.amount;
-    totalReturns += d.returns;
+    totalDelivered += d.qty;
+    totalReturned += d.returns;
     totalEarnings += d.earnings;
 
-    const companyCol = isAllCompanies ? `<td>${d.company}</td>` : '';
     html += `
       <tr>
-        <td>${new Date(d.timestamp).toLocaleDateString()}</td>
+        <td>${d.company}</td>
         <td>${d.dr_number || '-'}</td>
-        ${companyCol}
         <td class="text-center">${d.qty}</td>
-        <td>Water Refill</td>
-        <td class="text-right">₱${d.unitPrice.toFixed(2)}</td>
-        <td class="text-right">₱${d.amount.toFixed(2)}</td>
         <td class="text-center">${d.returns}</td>
         <td class="text-right">₱${d.earnings.toFixed(2)}</td>
       </tr>
@@ -1529,12 +1490,9 @@ document.getElementById('reportPdfBtn')?.addEventListener('click', () => {
         </tbody>
         <tfoot>
           <tr class="total-row">
-            <td colspan="${isAllCompanies ? 3 : 2}">TOTAL</td>
-            <td class="text-center">${totalQty}</td>
-            <td></td>
-            <td></td>
-            <td class="text-right">₱${totalAmount.toFixed(2)}</td>
-            <td class="text-center">${totalReturns}</td>
+            <td colspan="2">TOTAL</td>
+            <td class="text-center">${totalDelivered}</td>
+            <td class="text-center">${totalReturned}</td>
             <td class="text-right">₱${totalEarnings.toFixed(2)}</td>
           </tr>
         </tfoot>
@@ -1569,52 +1527,17 @@ async function loadHistoryData() {
   }
 }
 
-// Quick filter handlers
-document.getElementById('historyTodayBtn')?.addEventListener('click', () => {
-  const today = new Date().toISOString().split('T')[0];
-  showDeliveryHistory(today, today, 'Today');
-});
+// History date range filter
+document.getElementById('historyShowBtn')?.addEventListener('click', () => {
+  const startDate = document.getElementById('historyStartDate').value;
+  const endDate = document.getElementById('historyEndDate').value;
 
-document.getElementById('historyWeekBtn')?.addEventListener('click', () => {
-  const today = new Date();
-  const dayOfWeek = today.getDay();
-  const firstDay = new Date(today);
-  firstDay.setDate(today.getDate() - dayOfWeek);
-
-  const start = firstDay.toISOString().split('T')[0];
-  const end = today.toISOString().split('T')[0];
-  showDeliveryHistory(start, end, 'This Week');
-});
-
-document.getElementById('historyLastWeekBtn')?.addEventListener('click', () => {
-  const today = new Date();
-  const dayOfWeek = today.getDay();
-  const lastWeekEnd = new Date(today);
-  lastWeekEnd.setDate(today.getDate() - dayOfWeek - 1);
-  const lastWeekStart = new Date(lastWeekEnd);
-  lastWeekStart.setDate(lastWeekEnd.getDate() - 6);
-
-  const start = lastWeekStart.toISOString().split('T')[0];
-  const end = lastWeekEnd.toISOString().split('T')[0];
-  showDeliveryHistory(start, end, 'Last Week');
-});
-
-document.getElementById('historyMonthBtn')?.addEventListener('click', () => {
-  const today = new Date();
-  const firstDay = new Date(today.getFullYear(), today.getMonth(), 1);
-
-  const start = firstDay.toISOString().split('T')[0];
-  const end = today.toISOString().split('T')[0];
-  showDeliveryHistory(start, end, 'This Month');
-});
-
-document.getElementById('historyJumpBtn')?.addEventListener('click', () => {
-  const jumpDate = document.getElementById('historyJumpDate').value;
-  if (!jumpDate) {
-    showNotification('Please select a date', 'error');
+  if (!startDate || !endDate) {
+    showNotification('Please select start and end dates', 'error');
     return;
   }
-  showDeliveryHistory(jumpDate, jumpDate, `${new Date(jumpDate).toLocaleDateString()}`);
+
+  showDeliveryHistory(startDate, endDate, '');
 });
 
 function showDeliveryHistory(startDate, endDate, label) {
@@ -1672,20 +1595,17 @@ function renderDeliveryHistory(deliveries, label, startDate, endDate) {
   empty.style.display = 'none';
 
   if (startDate === endDate) {
-    dateRangeEl.textContent = `${label} (${new Date(startDate).toLocaleDateString()}) - ${deliveries.length} deliveries`;
+    dateRangeEl.textContent = `${new Date(startDate).toLocaleDateString()} - ${deliveries.length} deliveries`;
   } else {
-    dateRangeEl.textContent = `${label} (${new Date(startDate).toLocaleDateString()} - ${new Date(endDate).toLocaleDateString()}) - ${deliveries.length} deliveries`;
+    dateRangeEl.textContent = `${new Date(startDate).toLocaleDateString()} - ${new Date(endDate).toLocaleDateString()} (${deliveries.length} deliveries)`;
   }
 
+  // SIMPLIFIED: Company | DR # | Delivered | Returned | Earnings
   tbody.innerHTML = deliveries.map(del => `
     <tr style="border-bottom: 1px solid #ddd;">
-      <td style="padding: 8px; border: 1px solid #ddd;">${new Date(del.timestamp).toLocaleDateString()}</td>
-      <td style="padding: 8px; border: 1px solid #ddd;">${del.dr_number || '-'}</td>
       <td style="padding: 8px; border: 1px solid #ddd;">${del.company}</td>
+      <td style="padding: 8px; border: 1px solid #ddd;">${del.dr_number || '-'}</td>
       <td style="padding: 8px; border: 1px solid #ddd; text-align: center;">${del.qty}</td>
-      <td style="padding: 8px; border: 1px solid #ddd;">Water Refill</td>
-      <td style="padding: 8px; border: 1px solid #ddd; text-align: right;">₱${del.unitPrice.toFixed(2)}</td>
-      <td style="padding: 8px; border: 1px solid #ddd; text-align: right;">₱${del.amount.toFixed(2)}</td>
       <td style="padding: 8px; border: 1px solid #ddd; text-align: center;">${del.returns}</td>
       <td style="padding: 8px; border: 1px solid #ddd; text-align: right; color: #28a745; font-weight: bold;">₱${del.earnings.toFixed(2)}</td>
     </tr>
@@ -1703,4 +1623,40 @@ function setupEventListeners() {
   document.getElementById('dashFilterBtn')?.addEventListener('click', () => {
     // TODO: Implement filtering
   });
+
+  // Records page tab switching
+  document.querySelectorAll('.records-tab').forEach(tab => {
+    tab.addEventListener('click', () => {
+      const tabName = tab.dataset.tab;
+      showRecordsTab(tabName);
+    });
+  });
+}
+
+function showRecordsTab(tabName) {
+  // Hide all tabs
+  document.querySelectorAll('.records-tab-content').forEach(tab => {
+    tab.style.display = 'none';
+  });
+
+  // Remove active class from all tab buttons
+  document.querySelectorAll('.records-tab').forEach(btn => {
+    btn.classList.remove('active');
+    btn.style.color = '#999';
+    btn.style.borderBottom = '3px solid transparent';
+  });
+
+  // Show selected tab
+  const tabElement = document.getElementById(`${tabName}Tab`);
+  if (tabElement) {
+    tabElement.style.display = 'block';
+  }
+
+  // Activate tab button
+  const activeBtn = document.querySelector(`.records-tab[data-tab="${tabName}"]`);
+  if (activeBtn) {
+    activeBtn.classList.add('active');
+    activeBtn.style.color = '#667eea';
+    activeBtn.style.borderBottom = '3px solid #667eea';
+  }
 }
