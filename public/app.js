@@ -1092,6 +1092,12 @@ document.getElementById('backupBtn')?.addEventListener('click', async () => {
 
 async function exportBillingExcel(billingId, company, startDate, endDate) {
   try {
+    // Fetch companies to get current unit price
+    const companiesResponse = await fetch('/api/companies/all', { headers: getHeaders() });
+    const companies = companiesResponse.ok ? await companiesResponse.json() : [];
+    const companyData = companies.find(c => c.name === company || c.id == company);
+    const unitPrice = companyData ? parseFloat(companyData.unit_price) : 0;
+
     const deliveriesResponse = await fetch('/api/deliveries', { headers: getHeaders() });
     const deliveries = deliveriesResponse.ok ? await deliveriesResponse.json() : [];
 
@@ -1119,16 +1125,15 @@ async function exportBillingExcel(billingId, company, startDate, endDate) {
 
     billingDeliveries.forEach(d => {
       const qty = d.bottles_delivered || d.delivered || 0;
-      const unitPrice = 17; // Default, should come from company data
       const amount = qty * unitPrice;
       totalQty += qty;
       totalAmount += amount;
 
       const dateStr = new Date(d.timestamp).toLocaleDateString();
-      csv += `${dateStr},${d.dr_number || ''},${qty},5 gal round,${unitPrice},${amount}\n`;
+      csv += `${dateStr},${d.dr_number || ''},${qty},5 gal round,${unitPrice.toFixed(2)},${amount.toFixed(2)}\n`;
     });
 
-    csv += `\nTOTAL,${totalQty},5 gal round,,${totalAmount}\n`;
+    csv += `\nTOTAL,${totalQty},5 gal round,,${totalAmount.toFixed(2)}\n`;
     csv += `\nPREPARED BY:\n\n`;
 
     const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
@@ -1146,6 +1151,12 @@ async function exportBillingExcel(billingId, company, startDate, endDate) {
 
 async function exportBillingPdf(billingId, company, startDate, endDate) {
   try {
+    // Fetch companies to get current unit price
+    const companiesResponse = await fetch('/api/companies/all', { headers: getHeaders() });
+    const companies = companiesResponse.ok ? await companiesResponse.json() : [];
+    const companyData = companies.find(c => c.name === company || c.id == company);
+    const unitPrice = companyData ? parseFloat(companyData.unit_price) : 0;
+
     const deliveriesResponse = await fetch('/api/deliveries', { headers: getHeaders() });
     const deliveries = deliveriesResponse.ok ? await deliveriesResponse.json() : [];
 
@@ -1166,7 +1177,6 @@ async function exportBillingPdf(billingId, company, startDate, endDate) {
 
     billingDeliveries.forEach(d => {
       const qty = d.bottles_delivered || d.delivered || 0;
-      const unitPrice = 17; // Default
       const amount = qty * unitPrice;
       totalQty += qty;
       totalAmount += amount;
@@ -1246,7 +1256,7 @@ async function exportBillingPdf(billingId, company, startDate, endDate) {
                 <td></td>
                 <td style="text-align: center;">${totalQty}</td>
                 <td>5 gal round</td>
-                <td style="text-align: right;">17.00</td>
+                <td style="text-align: right;">${unitPrice.toFixed(2)}</td>
                 <td style="text-align: right;">AMOUNT: ${totalAmount.toLocaleString('en-US', { minimumFractionDigits: 2 })}</td>
               </tr>
             </tbody>
