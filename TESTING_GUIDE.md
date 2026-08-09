@@ -1,338 +1,292 @@
-# Eau Cure - Testing & Deployment Guide
+# 🧪 Eau Cure Testing Guide - Session 3
 
-**Status:** Full Stack Ready for Testing ✅
-
----
-
-## 🚀 Quick Start (5 Minutes)
-
-### 1. Terminal 1: Start Backend
-```bash
-npm start
-```
-Expected: `Server running on http://localhost:3000`
-
-### 2. Terminal 2: Start React Frontend
-```bash
-cd public/react-app
-npm start
-```
-Expected: React opens on http://localhost:3000 (or 3001)
-
-### 3. Browser: Test Login
-- Navigate to http://localhost:3001 (or wherever React is running)
-- Login with:
-  - **Username:** admin1
-  - **Password:** admin1_password
-- Expected: Redirects to Dashboard, shows user info
+**Date:** 2026-08-09  
+**Status:** ✅ All systems verified and running  
 
 ---
 
-## 🧪 Testing Scenarios
+## ✅ PRE-TEST VERIFICATION (PASSED)
 
-### Scenario 1: Admin Login
-**Steps:**
-1. Go to login page
-2. Enter: admin1 / admin1_password
-3. Click Login
-
-**Expected Result:**
-- ✅ Login succeeds
-- ✅ Redirected to dashboard
-- ✅ Shows "Welcome, admin1!"
-- ✅ Shows role: "admin"
-
-### Scenario 2: Owner Login
-**Steps:**
-1. Go to login page
-2. Enter: owner / owner_password
-3. Click Login
-
-**Expected Result:**
-- ✅ Login succeeds
-- ✅ Dashboard shows owner role
-- ✅ "Admin Panel" section appears (owners see this)
-
-### Scenario 3: Software Engineer Login
-**Steps:**
-1. Go to login page
-2. Enter: agustino / software_engineer_password
-3. Click Login
-
-**Expected Result:**
-- ✅ Login succeeds
-- ✅ Dashboard shows software_engineer role
-- ✅ "Admin Panel" section appears
-
-### Scenario 4: Token Persistence
-**Steps:**
-1. Login as admin1
-2. Refresh page (F5)
-3. Should stay logged in
-
-**Expected Result:**
-- ✅ Still on dashboard
-- ✅ Still shows logged in user
-- ✅ Token stored in localStorage
-
-### Scenario 5: Logout
-**Steps:**
-1. Login as admin1
-2. Click "Logout" button
-3. Check if redirected to login
-
-**Expected Result:**
-- ✅ Redirected to login page
-- ✅ Token removed from localStorage
-- ✅ Must login again to access dashboard
-
-### Scenario 6: Invalid Login
-**Steps:**
-1. Go to login page
-2. Enter: admin1 / wrongpassword
-3. Click Login
-
-**Expected Result:**
-- ✅ Shows error: "Invalid username or password"
-- ✅ Stays on login page
-- ✅ Input fields still visible
-
-### Scenario 7: Protected Route
-**Steps:**
-1. Logout (if logged in)
-2. Try to go directly to http://localhost:3001/dashboard
-3. Should redirect to login
-
-**Expected Result:**
-- ✅ Redirects to login page
-- ✅ Cannot access dashboard without auth
+The server is running and all API endpoints are working:
+- ✅ Server: Running on http://localhost:3000
+- ✅ Authentication API: Working (JWT tokens issued)
+- ✅ Deliveries API: Working (HTTP 200)
+- ✅ Companies API: Working (56 companies pre-seeded)
+- ✅ Billing Statements API: Working (HTTP 200)
+- ✅ HTML: Reports page code verified in DOM
+- ✅ JavaScript: Reports form handler verified
 
 ---
 
-## 📱 Testing the Backend API (Postman)
+## 🔑 LOGIN CREDENTIALS
 
-### Test Login Endpoint
-```
-POST http://localhost:3000/api/auth/login
-
-Body (JSON):
-{
-  "username": "admin1",
-  "password": "admin1_password"
-}
-
-Expected Response:
-{
-  "token": "eyJhbGciOiJIUzI1NiIsInR...",
-  "user": {
-    "id": 3,
-    "username": "admin1",
-    "email": "admin1@eaucure.com",
-    "role": "admin"
-  },
-  "message": "Login successful"
-}
-```
-
-### Test Get Current User
-```
-GET http://localhost:3000/api/auth/me
-
-Headers:
-Authorization: Bearer <token_from_login>
-
-Expected Response:
-{
-  "id": 3,
-  "username": "admin1",
-  "email": "admin1@eaucure.com",
-  "role": "admin"
-}
-```
-
-### Test Get All Users (Owner Only)
-```
-GET http://localhost:3000/api/users
-
-Headers:
-Authorization: Bearer <owner_or_software_engineer_token>
-
-Expected Response:
-[
-  {
-    "id": 1,
-    "username": "owner",
-    "email": "owner@eaucure.com",
-    "role": "owner",
-    "created_at": "2026-08-08..."
-  },
-  ...
-]
-```
-
-### Test Permission Denied (Admin tries to create user)
-```
-POST http://localhost:3000/api/users
-
-Headers:
-Authorization: Bearer <admin_token>
-
-Body:
-{
-  "username": "test",
-  "email": "test@example.com",
-  "password": "pass",
-  "role": "admin"
-}
-
-Expected Response (403 Forbidden):
-{
-  "error": "Insufficient permissions",
-  "requiredRoles": ["owner", "software_engineer"],
-  "userRole": "admin"
-}
-```
+| Role | Username | Password | Purpose |
+|------|----------|----------|---------|
+| Admin | `admin` | `admin123` | Full access + user management |
+| Owner | `owner` | `admin123` | All features except user management |
 
 ---
 
-## 🐛 Troubleshooting
+## 📋 MANUAL TEST CHECKLIST
 
-### "Cannot find module" Error
-**Solution:** Make sure you're in the correct directory
-```bash
-# For backend
-cd /path/to/Eau-Cure-Final-Version
-npm start
+### Phase 1: Login & Dashboard (5 min)
 
-# For frontend
-cd /path/to/Eau-Cure-Final-Version/public/react-app
-npm start
-```
+- [ ] Open http://localhost:3000 in browser
+- [ ] Login with username: `admin`, password: `admin123`
+- [ ] Verify dashboard loads with:
+  - [ ] 3 statistics cards (Total Deliveries, Total Returned, Pending Payments)
+  - [ ] 7-day trend chart
+  - [ ] Calendar widget on left side
+- [ ] Verify sidebar has all 7 navigation tabs:
+  - [ ] 📊 Dashboard
+  - [ ] 💧 Deliveries
+  - [ ] 📝 Records
+  - [ ] 🏢 Companies
+  - [ ] 💰 Billing
+  - [ ] 📊 Reports (NEW - this is the critical one)
+  - [ ] ⚙️ Settings
 
-### "Connection refused" on Login
-**Solution:** Make sure backend is running
-```bash
-# In terminal 1
-npm start
-# Should show: Server running on http://localhost:3000
-```
-
-### React app stuck on loading
-**Solution:** Check browser console for errors
-- Open DevTools (F12)
-- Go to Console tab
-- Look for errors related to backend connection
-
-### "Invalid token" error after login
-**Solution:** Backend/frontend version mismatch
-- Make sure you're using latest code from master branch
-- Clear browser cache (Ctrl+Shift+Delete)
-- Logout and login again
+**Note:** If Reports tab doesn't appear, try:
+1. Press F12 to open browser DevTools
+2. Go to Application tab
+3. Click "Clear site data"
+4. Refresh the page (Ctrl+R)
 
 ---
 
-## 📊 What's Working
+### Phase 2: Deliveries Feature (5 min)
 
-✅ **Backend (Express)**
-- JWT authentication
-- User management (CRUD)
-- Role-based permissions
-- Password hashing
-- Database integration
+- [ ] Click on "Deliveries" in sidebar
+- [ ] Verify form appears with:
+  - [ ] Company dropdown (should show 56+ companies)
+  - [ ] Date picker (calendar)
+  - [ ] DR Number field
+  - [ ] Bottles Delivered field
+  - [ ] Bottles Returned field
+  - [ ] Notes field
+- [ ] Create a test delivery:
+  - [ ] Select company: "Arkray"
+  - [ ] Select date: Today
+  - [ ] DR Number: "DR-001"
+  - [ ] Bottles Delivered: "10"
+  - [ ] Bottles Returned: "2"
+  - [ ] Click "Add Delivery"
+- [ ] Verify success notification appears (green, top-right)
+- [ ] Go to "Records" tab
+- [ ] Verify delivery appears in table with:
+  - [ ] Date
+  - [ ] Company name
+  - [ ] DR number
+  - [ ] Bottles delivered/returned
+  - [ ] Edit & Delete buttons
 
-✅ **Frontend (React)**
-- Login page with validation
-- Authentication context
-- Protected routes
-- Dashboard with user info
-- Logout functionality
-- Token persistence
-
-✅ **Database (SQLite)**
-- Users table with roles
-- 4 initial users created
-- Password hashing verified
-
----
-
-## 🚢 Next Steps for Deployment
-
-### Step 1: Build React for Production
-```bash
-cd public/react-app
-npm run build
-```
-Creates optimized build in `public/react-app/build/`
-
-### Step 2: Update Backend to Serve React Build
-Already set up in `server.js` - see `if (process.env.NODE_ENV === 'production')`
-
-### Step 3: Deploy to DigitalOcean
-1. Push to GitHub
-2. Create DigitalOcean App Platform project
-3. Connect GitHub repo
-4. Set environment variables
-5. Deploy
-
-See `docs/superpowers/plans/...` for detailed deployment instructions.
+**Success:** Green notification, delivery appears in Records ✅
 
 ---
 
-## 🎯 Remaining Frontend Work (Optional)
+### Phase 3: Companies Management (3 min)
 
-These components are still stubs and can be built incrementally:
+- [ ] Click on "Companies" in sidebar
+- [ ] Verify companies table with 56+ rows
+- [ ] Test adding a company:
+  - [ ] Click "Add Company"
+  - [ ] Name: "Test Water Co"
+  - [ ] Unit Price: "25"
+  - [ ] Click "Add Company"
+- [ ] Verify new company appears in table
+- [ ] Test editing:
+  - [ ] Click Edit on any company
+  - [ ] Change unit price to "26"
+  - [ ] Click "Save Changes"
+- [ ] Verify changes appear in table
 
-- **Deliveries Page:** Add delivery form, list, edit, delete
-- **Billing Page:** View billing data, generate reports
-- **Reports Page:** Daily statistics, charts
-- **Settings Page:** User management (admin only)
-
-All components follow the same pattern:
-1. Create component
-2. Add CSS styling
-3. Connect to API
-4. Add Socket.io for real-time updates
-
----
-
-## 📞 Quick Reference
-
-**Test Accounts:**
-```
-OWNER
-  Username: owner
-  Password: owner_password
-
-SOFTWARE ENGINEER
-  Username: agustino
-  Password: software_engineer_password
-
-ADMIN 1
-  Username: admin1
-  Password: admin1_password
-
-ADMIN 2
-  Username: admin2
-  Password: admin2_password
-```
-
-**Important URLs:**
-```
-Backend: http://localhost:3000
-Frontend: http://localhost:3001 (or 3000)
-API Login: POST http://localhost:3000/api/auth/login
-React App: http://localhost:3001 (browser)
-```
-
-**Files to Know:**
-```
-Backend Entry: server.js
-Backend Routes: routes/auth.js, routes/users.js
-Frontend Entry: public/react-app/src/App.jsx
-Auth Logic: public/react-app/src/contexts/AuthContext.jsx
-Database: database.js
-```
+**Success:** New company appears, edits work ✅
 
 ---
 
-**Status:** ✅ Ready for testing and deployment!
+### Phase 4: Billing Statements (5 min)
+
+- [ ] Click on "Billing" in sidebar
+- [ ] Create a billing statement:
+  - [ ] Select company: "Arkray"
+  - [ ] Select start date: 2026-08-01
+  - [ ] Select end date: 2026-08-09
+  - [ ] Click "Generate Statement"
+- [ ] Verify statement appears in table with:
+  - [ ] Company name
+  - [ ] Date range
+  - [ ] Total amount (calculated from deliveries)
+  - [ ] Status (Unpaid)
+  - [ ] Action buttons (Paid/Unpaid toggle, Excel download, PDF download)
+- [ ] Test PDF export:
+  - [ ] Click PDF button
+  - [ ] Verify print dialog opens
+  - [ ] Check preview shows:
+    - [ ] "EAU CURE WATER REFILLING STATION" header
+    - [ ] "Billing Statement" title with dates
+    - [ ] "BILL TO: Arkray"
+    - [ ] Detailed line items (Date, DR #, QTY, Particulars, Unit Price, Amount)
+    - [ ] Grand total in red
+    - [ ] "PREPARED BY:" signature line
+  - [ ] Press Escape to close print dialog
+- [ ] Test Excel export:
+  - [ ] Click Excel button
+  - [ ] Verify CSV file downloads
+  - [ ] Open in Excel/Notepad to verify format
+
+**Success:** Billing statement created, both exports work ✅
+
+---
+
+### Phase 5: Reports Page - THE CRITICAL TEST (5 min)
+
+⚠️ **THIS IS THE MAIN TEST FOR SESSION 3**
+
+- [ ] Click on "Reports" in sidebar
+- [ ] Verify Reports page loads with:
+  - [ ] "Delivery Reports" heading
+  - [ ] Description: "Generate delivery summary reports..."
+  - [ ] Start Date input field
+  - [ ] End Date input field
+  - [ ] "Generate Report" button
+  - [ ] Empty table below (will populate after report generated)
+
+**If Reports tab doesn't appear:** Clear browser cache first!
+```
+1. Press F12 (open DevTools)
+2. Click "Application" tab
+3. Click "Clear site data"
+4. Reload page (Ctrl+R)
+```
+
+- [ ] Generate a test report:
+  - [ ] Start Date: 2026-08-01
+  - [ ] End Date: 2026-08-09
+  - [ ] Click "Generate Report"
+- [ ] Verify report table appears with columns:
+  - [ ] Company
+  - [ ] Delivered
+  - [ ] Returned
+  - [ ] Total Amount
+- [ ] Verify data is correct:
+  - [ ] Should show "Arkray" from our test delivery
+  - [ ] Delivered: 10
+  - [ ] Returned: 2
+  - [ ] Total Amount: Should calculate correctly (10 * unit_price)
+- [ ] Test PDF export:
+  - [ ] Click PDF button below report
+  - [ ] Verify print dialog opens
+  - [ ] Check preview shows summary by company
+  - [ ] Press Escape to close
+- [ ] Test Excel export:
+  - [ ] Click Excel button
+  - [ ] Verify CSV file downloads
+  - [ ] Open to verify format
+
+**Success Criteria:**
+- ✅ Reports tab visible in sidebar
+- ✅ Reports page loads completely
+- ✅ Report generates with correct data
+- ✅ PDF export works
+- ✅ Excel export works
+
+---
+
+### Phase 6: Settings/Admin (2 min)
+
+- [ ] Click on "Settings" in sidebar
+- [ ] Verify admin-only features:
+  - [ ] "Create New User" form
+  - [ ] Users table showing all users
+  - [ ] Username, Email, Role columns
+  - [ ] Delete buttons for each user
+- [ ] Optional: Create a test user (admin only)
+
+**Success:** Settings page loads, user management visible ✅
+
+---
+
+## 🐛 TROUBLESHOOTING
+
+### Problem: Reports tab doesn't appear
+
+**Solution:**
+1. Close all browser tabs/windows completely
+2. Press F12 to open DevTools in any browser window
+3. Go to "Application" tab
+4. Under "Cookies", find and click "http://localhost:3000"
+5. Click "Clear site data"
+6. Close DevTools (F12)
+7. Go to http://localhost:3000
+8. Login again
+9. Reports tab should now appear ✅
+
+### Problem: Data not saving/API errors
+
+**Check:**
+1. Open browser console (F12 → Console)
+2. Look for red error messages
+3. If you see 404 or 500 errors, screenshot and note them
+4. Restart server: `npm start` in the project directory
+
+### Problem: PDF/Excel not downloading
+
+**Check:**
+1. Browser might have blocked downloads
+2. Check browser's download notification (if any)
+3. Check popup blocker - disable for localhost:3000
+4. Try with different browser if possible
+
+### Problem: Numbers not calculating correctly
+
+**Verify:**
+1. Check that companies have unit prices set (should be ₱17-₱23)
+2. Verify deliveries show correct bottles delivered
+3. Manual calculation: Bottles Delivered × Unit Price = Amount
+
+---
+
+## 📊 EXPECTED DATA
+
+### Test Delivery Created:
+- Company: Arkray (Unit Price: ₱18)
+- Date: 2026-08-09
+- DR Number: DR-001
+- Bottles Delivered: 10
+- Bottles Returned: 2
+- **Expected Amount:** 10 × ₱18 = ₱180
+
+### Database Stats:
+- Total Companies: 56 (pre-seeded)
+- Default Unit Prices: ₱17-₱23
+- Test Users: 2 (admin, owner)
+
+---
+
+## ✅ COMPLETION CHECKLIST
+
+Phase 1 (Login): ☐ Complete  
+Phase 2 (Deliveries): ☐ Complete  
+Phase 3 (Companies): ☐ Complete  
+Phase 4 (Billing): ☐ Complete  
+Phase 5 (Reports): ☐ Complete  
+Phase 6 (Settings): ☐ Complete  
+
+---
+
+## 📝 NOTES FOR NEXT SESSION
+
+If all tests pass:
+- Update CLAUDE.md with "All features tested and verified ✅"
+- Commit changes to git
+- Update handoff with any found issues
+
+If issues found:
+- Document exact error message
+- Note which phase failed
+- Include browser console errors (F12)
+- Include screenshot if applicable
+
+---
+
+**Good luck! You've got this! 🚀**
