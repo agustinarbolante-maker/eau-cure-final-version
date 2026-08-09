@@ -156,30 +156,29 @@ function seedDefaultUsers() {
       if (err) {
         reject(err);
       } else if (rows[0].count === 0) {
-        // Hash password: admin123
-        bcrypt.hash('admin123', 10, (hashErr, hashedPassword) => {
-          if (hashErr) {
-            reject(hashErr);
-          } else {
-            const defaultUsers = [
-              { username: 'admin', email: 'admin@eaucure.com', password_hash: hashedPassword, role: 'admin' },
-              { username: 'owner', email: 'owner@eaucure.com', password_hash: hashedPassword, role: 'owner' }
-            ];
+        // Hash both admin and owner passwords
+        Promise.all([
+          new Promise((res, rej) => bcrypt.hash('Admin123', 10, (err, hash) => err ? rej(err) : res(hash))),
+          new Promise((res, rej) => bcrypt.hash('Olimar123', 10, (err, hash) => err ? rej(err) : res(hash)))
+        ]).then(([adminHash, ownerHash]) => {
+          const defaultUsers = [
+            { username: 'Admin', email: 'admin@eaucure.com', password_hash: adminHash, role: 'admin' },
+            { username: 'Olimar', email: 'owner@eaucure.com', password_hash: ownerHash, role: 'owner' }
+          ];
 
-            const stmt = db.prepare(
-              "INSERT OR IGNORE INTO users (username, email, password_hash, role) VALUES (?, ?, ?, ?)"
-            );
+          const stmt = db.prepare(
+            "INSERT OR IGNORE INTO users (username, email, password_hash, role) VALUES (?, ?, ?, ?)"
+          );
 
-            defaultUsers.forEach(u => {
-              stmt.run(u.username, u.email, u.password_hash, u.role);
-            });
+          defaultUsers.forEach(u => {
+            stmt.run(u.username, u.email, u.password_hash, u.role);
+          });
 
-            stmt.finalize((err) => {
-              if (err) reject(err);
-              else resolve();
-            });
-          }
-        });
+          stmt.finalize((err) => {
+            if (err) reject(err);
+            else resolve();
+          });
+        }).catch(reject);
       } else {
         resolve();
       }
