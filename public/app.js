@@ -365,8 +365,23 @@ async function calculateEarnings(deliveries) {
 }
 
 function renderDeliveryChart(deliveries) {
-  const ctx = document.getElementById('trendChart');
-  if (!ctx) return;
+  const canvasContainer = document.getElementById('trendChart')?.parentElement;
+  if (!canvasContainer) return;
+
+  // Destroy old chart and canvas
+  if (trendChart) {
+    trendChart.destroy();
+  }
+
+  // Remove and recreate canvas to ensure clean state
+  const oldCanvas = document.getElementById('trendChart');
+  if (oldCanvas) {
+    oldCanvas.remove();
+  }
+
+  const newCanvas = document.createElement('canvas');
+  newCanvas.id = 'trendChart';
+  canvasContainer.appendChild(newCanvas);
 
   const last7Days = getLast7Days();
   const data = {};
@@ -376,21 +391,13 @@ function renderDeliveryChart(deliveries) {
   deliveries.forEach(del => {
     const date = new Date(del.timestamp).toISOString().split('T')[0];
     if (data[date] !== undefined) {
-      // FIX: Use bottles_delivered/bottles_returned (correct API field names)
       const delivered = del.bottles_delivered || del.delivered || 0;
       const returned = del.bottles_returned || del.returned || 0;
       data[date] += delivered - returned;
     }
   });
 
-  console.log('Chart data (last 7 days):', data);
-
-  if (trendChart) {
-    console.log('Destroying old chart');
-    trendChart.destroy();
-  }
-
-  trendChart = new Chart(ctx, {
+  trendChart = new Chart(newCanvas, {
     type: 'line',
     data: {
       labels: last7Days,
