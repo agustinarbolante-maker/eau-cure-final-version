@@ -45,20 +45,8 @@ const reactBuildPath = path.join(__dirname, 'public', 'react-app', 'build');
 const reactIndexPath = path.join(reactBuildPath, 'index.html');
 
 if (fs.existsSync(reactBuildPath)) {
-  // Serve React static files and app
+  // Serve React static files
   app.use(express.static(reactBuildPath, { maxAge: '1d', etag: false }));
-  // SPA routing - catch all non-API routes and serve React index.html
-  app.get('*', (req, res) => {
-    // Don't serve index.html for API routes or requests that should 404
-    if (req.path.startsWith('/api/') || req.path.includes('.')) {
-      return res.status(404).json({ error: 'Not found' });
-    }
-    res.sendFile(reactIndexPath, (err) => {
-      if (err) {
-        res.status(500).send('Error loading React app');
-      }
-    });
-  });
 } else {
   // Fallback: serve old public folder
   app.use(express.static(path.join(__dirname, 'public')));
@@ -425,6 +413,17 @@ app.use('/api/users', usersRoutes);
 
 // Make io available to routes
 app.set('io', io);
+
+// SPA routing catch-all - MUST BE AT THE END after all API routes
+if (fs.existsSync(reactBuildPath)) {
+  app.get('*', (req, res) => {
+    res.sendFile(reactIndexPath, (err) => {
+      if (err) {
+        res.status(500).send('Error loading React app');
+      }
+    });
+  });
+}
 
 async function start() {
   try {
