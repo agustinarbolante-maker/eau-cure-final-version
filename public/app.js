@@ -980,6 +980,119 @@ document.getElementById('backupBtn')?.addEventListener('click', async () => {
 });
 
 // ============================================
+// BILLING EXPORT FUNCTIONS
+// ============================================
+
+document.getElementById('exportBillingExcelBtn')?.addEventListener('click', async () => {
+  try {
+    const response = await fetch('/api/billing-statements', { headers: getHeaders() });
+    if (response.ok) {
+      const billings = await response.json();
+
+      // CSV header
+      const header = ['Company', 'Start Date', 'End Date', 'Total Amount', 'Status', 'Created Date'];
+      const rows = billings.map(b => [
+        b.company_name || b.company || '',
+        b.start_date || '',
+        b.end_date || '',
+        b.total_amount || '',
+        b.is_paid || b.paid ? 'Paid' : 'Unpaid',
+        b.created_date || ''
+      ]);
+
+      const csv = [header, ...rows].map(row => row.map(cell => `"${cell}"`).join(',')).join('\n');
+      const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+      const link = document.createElement('a');
+      const url = URL.createObjectURL(blob);
+      link.setAttribute('href', url);
+      link.setAttribute('download', `billing-statements-${new Date().toISOString().split('T')[0]}.csv`);
+      link.click();
+      showNotification('✓ Billing statements exported to Excel', 'success');
+    }
+  } catch (error) {
+    console.error('Export error:', error);
+    showNotification('Error exporting to Excel', 'error');
+  }
+});
+
+document.getElementById('exportBillingPdfBtn')?.addEventListener('click', async () => {
+  try {
+    const response = await fetch('/api/billing-statements', { headers: getHeaders() });
+    if (response.ok) {
+      const billings = await response.json();
+
+      let html = `
+        <html>
+          <head>
+            <style>
+              body { font-family: Arial, sans-serif; margin: 20px; }
+              h1 { color: #667eea; text-align: center; }
+              table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+              th, td { border: 1px solid #ddd; padding: 12px; text-align: left; }
+              th { background-color: #667eea; color: white; font-weight: bold; }
+              tr:nth-child(even) { background-color: #f9f9f9; }
+              .amount { text-align: right; font-weight: bold; }
+              .status { padding: 6px 12px; border-radius: 20px; display: inline-block; }
+              .status-paid { background-color: #d4edda; color: #155724; }
+              .status-unpaid { background-color: #f8d7da; color: #721c24; }
+              .footer { margin-top: 20px; text-align: center; color: #999; font-size: 12px; }
+            </style>
+          </head>
+          <body>
+            <h1>Billing Statements Report</h1>
+            <p style="text-align: center; color: #666;">Generated on ${new Date().toLocaleString()}</p>
+            <table>
+              <thead>
+                <tr>
+                  <th>Company</th>
+                  <th>Start Date</th>
+                  <th>End Date</th>
+                  <th>Total Amount (₱)</th>
+                  <th>Status</th>
+                  <th>Created Date</th>
+                </tr>
+              </thead>
+              <tbody>
+      `;
+
+      billings.forEach(b => {
+        const status = b.is_paid || b.paid ? 'Paid' : 'Unpaid';
+        const statusClass = (b.is_paid || b.paid) ? 'status-paid' : 'status-unpaid';
+        html += `
+          <tr>
+            <td>${b.company_name || b.company || ''}</td>
+            <td>${b.start_date ? new Date(b.start_date).toLocaleDateString() : ''}</td>
+            <td>${b.end_date ? new Date(b.end_date).toLocaleDateString() : ''}</td>
+            <td class="amount">₱${parseFloat(b.total_amount || 0).toFixed(2)}</td>
+            <td><span class="status ${statusClass}">${status}</span></td>
+            <td>${b.created_date ? new Date(b.created_date).toLocaleDateString() : ''}</td>
+          </tr>
+        `;
+      });
+
+      html += `
+              </tbody>
+            </table>
+            <div class="footer">
+              <p>Eau Cure - Water Station Delivery Tracker</p>
+            </div>
+          </body>
+        </html>
+      `;
+
+      const printWindow = window.open('', '', 'height=600,width=900');
+      printWindow.document.write(html);
+      printWindow.document.close();
+      printWindow.print();
+      showNotification('✓ Billing statements ready to print/export as PDF', 'success');
+    }
+  } catch (error) {
+    console.error('PDF export error:', error);
+    showNotification('Error exporting to PDF', 'error');
+  }
+});
+
+// ============================================
 // NOTIFICATION SYSTEM
 // ============================================
 
