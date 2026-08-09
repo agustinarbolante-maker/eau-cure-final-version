@@ -243,17 +243,23 @@
 
       <!-- BILLING PAGE -->
       <section id="billing-page" class="page-content">
-        <div class="form-section" style="max-width: 500px;">
+        <div class="form-section" style="max-width: 600px;">
           <h2>Create Billing Statement</h2>
-          <p style="color: #666; margin-bottom: 20px; font-size: 0.95em;">Select company and month - billing amount will be calculated automatically</p>
+          <p style="color: #666; margin-bottom: 20px; font-size: 0.95em;">Select company and date range - billing details will be calculated from deliveries</p>
           <form id="billingForm">
             <div class="form-group">
               <label>Company</label>
               <select id="bilCompany" required></select>
             </div>
-            <div class="form-group">
-              <label>Billing Month</label>
-              <input type="month" id="bilMonth" required>
+            <div class="form-row">
+              <div class="form-group">
+                <label>Start Date</label>
+                <input type="date" id="bilStartDate" required>
+              </div>
+              <div class="form-group">
+                <label>End Date</label>
+                <input type="date" id="bilEndDate" required>
+              </div>
             </div>
             <button type="submit" class="btn btn-primary" style="width: 100%; margin-top: 10px;">Create Billing Statement</button>
           </form>

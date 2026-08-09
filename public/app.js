@@ -371,30 +371,23 @@ function renderCompanies(companies) {
 function renderBillings(billings) {
   const tbody = document.getElementById('billingBody');
 
-  fetch('/api/companies/all', { headers: getHeaders() })
-    .then(r => r.ok ? r.json() : [])
-    .then(companies => {
-      const companyMap = {};
-      companies.forEach(com => { companyMap[com.id] = com.name; });
+  if (billings.length === 0) {
+    tbody.innerHTML = '<tr class="empty-state"><td colspan="5">No billing statements yet</td></tr>';
+    return;
+  }
 
-      if (billings.length === 0) {
-        tbody.innerHTML = '<tr class="empty-state"><td colspan="5">No billing statements yet</td></tr>';
-        return;
-      }
-
-      tbody.innerHTML = billings.map(bill => `
-        <tr>
-          <td>${companyMap[bill.company_id] || 'Unknown'}</td>
-          <td>${bill.period}</td>
-          <td>₱${parseFloat(bill.amount).toFixed(2)}</td>
-          <td><span class="badge ${bill.paid ? 'badge-success' : 'badge-danger'}">${bill.paid ? 'Paid' : 'Unpaid'}</span></td>
-          <td class="actions">
-            <button class="btn btn-secondary btn-sm" onclick="toggleBillingStatus(${bill.id})">Toggle</button>
-            <button class="btn btn-danger btn-sm" onclick="deleteBilling(${bill.id})">Delete</button>
-          </td>
-        </tr>
-      `).join('');
-    });
+  tbody.innerHTML = billings.map(bill => `
+    <tr>
+      <td>${bill.company_name || bill.company || 'Unknown'}</td>
+      <td>${bill.start_date ? new Date(bill.start_date).toLocaleDateString() : 'N/A'} - ${bill.end_date ? new Date(bill.end_date).toLocaleDateString() : 'N/A'}</td>
+      <td>₱${parseFloat(bill.total_amount || bill.amount || 0).toFixed(2)}</td>
+      <td><span class="badge ${bill.is_paid || bill.paid ? 'badge-success' : 'badge-danger'}">${bill.is_paid || bill.paid ? 'Paid' : 'Unpaid'}</span></td>
+      <td class="actions">
+        <button class="btn btn-secondary btn-sm" onclick="toggleBillingStatus(${bill.id})">Toggle</button>
+        <button class="btn btn-danger btn-sm" onclick="deleteBilling(${bill.id})">Delete</button>
+      </td>
+    </tr>
+  `).join('');
 }
 
 function renderUsers(users) {
@@ -732,54 +725,62 @@ document.getElementById('billingForm')?.addEventListener('submit', async (e) => 
   e.preventDefault();
 
   const companyId = parseInt(document.getElementById('bilCompany').value);
-  const bilMonth = document.getElementById('bilMonth').value;
+  const startDate = document.getElementById('bilStartDate').value;
+  const endDate = document.getElementById('bilEndDate').value;
 
-  if (!companyId || !bilMonth) {
-    showNotification('Please select company and month', 'error');
+  if (!companyId || !startDate || !endDate) {
+    showNotification('Please fill in all fields', 'error');
     return;
   }
 
   try {
     // Get company details
-    const companyResponse = await fetch(`/api/companies/${companyId}`, { headers: getHeaders() });
-    const company = companyResponse.ok ? await companyResponse.json() : null;
+    const companiesResponse = await fetch('/api/companies/all', { headers: getHeaders() });
+    const companies = companiesResponse.ok ? await companiesResponse.json() : [];
+    const company = companies.find(c => c.id === companyId);
+
+    if (!company) {
+      showNotification('Company not found', 'error');
+      return;
+    }
 
     // Get all deliveries
     const deliveriesResponse = await fetch('/api/deliveries', { headers: getHeaders() });
     const deliveries = deliveriesResponse.ok ? await deliveriesResponse.json() : [];
 
-    // Calculate total bottles for this company in this month
+    // Calculate total for this company in date range
     let totalBottles = 0;
-    const [year, month] = bilMonth.split('-');
+    const startDateObj = new Date(startDate);
+    const endDateObj = new Date(endDate);
 
     deliveries.forEach(del => {
       const delDate = new Date(del.timestamp);
-      if (del.company_id === companyId &&
-          delDate.getFullYear() === parseInt(year) &&
-          (delDate.getMonth() + 1) === parseInt(month)) {
-        totalBottles += del.delivered;
+      if ((del.company === company.name || del.company_id === companyId) &&
+          delDate >= startDateObj &&
+          delDate <= endDateObj) {
+        totalBottles += (del.bottles_delivered || del.delivered || 0);
       }
     });
 
-    const unitPrice = company ? parseFloat(company.unit_price) : 0;
+    const unitPrice = parseFloat(company.unit_price) || 0;
     const totalAmount = totalBottles * unitPrice;
 
     // Create billing statement
     const data = {
-      company_id: companyId,
-      period: bilMonth,
-      amount: totalAmount,
-      paid: false
+      company: company.name,
+      startDate: startDate,
+      endDate: endDate,
+      totalAmount: totalAmount
     };
 
-    const response = await fetch('/api/billings', {
+    const response = await fetch('/api/billing-statements', {
       method: 'POST',
       headers: getHeaders(),
       body: JSON.stringify(data)
     });
 
     if (response.ok) {
-      showNotification(`✓ Billing created! ${company.name} - ₱${totalAmount.toFixed(2)}`, 'success');
+      showNotification(`✓ Billing created! ${company.name} - ₱${totalAmount.toFixed(2)} (${totalBottles} bottles)`, 'success');
       document.getElementById('billingForm').reset();
       loadBillings();
     } else {
