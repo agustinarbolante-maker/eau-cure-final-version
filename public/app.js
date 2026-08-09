@@ -205,7 +205,7 @@ async function loadDeliveries() {
 
 async function loadCompanies() {
   try {
-    const response = await fetch('/api/companies', { headers: getHeaders() });
+    const response = await fetch('/api/companies/all', { headers: getHeaders() });
     if (response.ok) {
       const data = await response.json();
       renderCompanies(data);
@@ -327,7 +327,7 @@ function getLast7Days() {
 function renderDeliveries(deliveries) {
   const tbody = document.getElementById('recordsBody');
 
-  fetch('/api/companies', { headers: getHeaders() })
+  fetch('/api/companies/all', { headers: getHeaders() })
     .then(r => r.ok ? r.json() : [])
     .then(companies => {
       const companyMap = {};
@@ -378,7 +378,7 @@ function renderCompanies(companies) {
 function renderBillings(billings) {
   const tbody = document.getElementById('billingBody');
 
-  fetch('/api/companies', { headers: getHeaders() })
+  fetch('/api/companies/all', { headers: getHeaders() })
     .then(r => r.ok ? r.json() : [])
     .then(companies => {
       const companyMap = {};

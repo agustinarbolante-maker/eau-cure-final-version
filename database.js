@@ -163,8 +163,7 @@ function seedDefaultUsers() {
           } else {
             const defaultUsers = [
               { username: 'admin', email: 'admin@eaucure.com', password_hash: hashedPassword, role: 'admin' },
-              { username: 'agustino', email: 'agustino@eaucure.com', password_hash: hashedPassword, role: 'owner' },
-              { username: 'employee', email: 'employee@eaucure.com', password_hash: hashedPassword, role: 'software_engineer' }
+              { username: 'owner', email: 'owner@eaucure.com', password_hash: hashedPassword, role: 'owner' }
             ];
 
             const stmt = db.prepare(
