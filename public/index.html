@@ -395,6 +395,16 @@
         </div>
 
         <h2 style="margin-top: 40px;">Billing Statements</h2>
+        <div style="margin-bottom: 20px; display: flex; gap: 20px; align-items: center;">
+          <div class="filter-group">
+            <label for="invoiceStatusFilter">Invoice Status:</label>
+            <select id="invoiceStatusFilter" onchange="handleInvoiceStatusFilterChange(this.value)">
+              <option value="all">All</option>
+              <option value="pending">Pending Invoice</option>
+              <option value="has">Has Invoice</option>
+            </select>
+          </div>
+        </div>
         <div class="table-wrapper">
           <table id="billingTable">
             <thead>

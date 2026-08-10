@@ -2,6 +2,7 @@
 let currentUser = null;
 let currentToken = null;
 let trendChart = null;
+let invoiceStatusFilter = 'all';
 
 // Get authorization headers
 function getHeaders() {
@@ -226,7 +227,16 @@ async function loadBillings() {
   try {
     const response = await fetch('/api/billing-statements', { headers: getHeaders() });
     if (response.ok) {
-      const data = await response.json();
+      let data = await response.json();
+
+      // Apply invoice status filter
+      if (invoiceStatusFilter === 'pending') {
+        data = data.filter(b => !b.invoice_number);
+      } else if (invoiceStatusFilter === 'has') {
+        data = data.filter(b => b.invoice_number);
+      }
+      // if 'all', no additional filtering
+
       renderBillings(data);
     } else {
       console.error('Error loading billings:', response.status, response.statusText);
@@ -234,6 +244,11 @@ async function loadBillings() {
   } catch (error) {
     console.error('Error loading billings:', error);
   }
+}
+
+function handleInvoiceStatusFilterChange(value) {
+  invoiceStatusFilter = value;
+  loadBillings(); // Reload and re-render with new filter applied
 }
 
 async function loadDashboardData() {
