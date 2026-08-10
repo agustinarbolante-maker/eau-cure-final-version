@@ -541,6 +541,156 @@ function renderBillings(billings) {
   setupInvoiceNumberEdit();
 }
 
+// ============================================
+// INVOICE NUMBER INLINE EDITING
+// ============================================
+
+function setupInvoiceNumberEdit() {
+  const cells = document.querySelectorAll('.invoice-number-cell');
+
+  cells.forEach(cell => {
+    cell.addEventListener('click', function(e) {
+      // Don't enter edit mode if clicking on an existing input field
+      if (e.target.tagName === 'INPUT') return;
+
+      enterInvoiceEditMode(this);
+    });
+  });
+}
+
+function enterInvoiceEditMode(cell) {
+  // If already in edit mode, do nothing
+  if (cell.classList.contains('editing')) return;
+
+  const billingId = cell.dataset.billingId;
+  const currentValue = cell.dataset.currentValue || '';
+
+  // Mark as editing
+  cell.classList.add('editing');
+
+  // Create input field
+  const input = document.createElement('input');
+  input.type = 'text';
+  input.className = 'invoice-input';
+  input.value = currentValue;
+
+  // Clear cell and add input
+  cell.innerHTML = '';
+  cell.appendChild(input);
+
+  // Auto-focus and select text
+  input.focus();
+  if (currentValue) {
+    input.select();
+  }
+
+  // Handle Enter key (save)
+  input.addEventListener('keydown', function(e) {
+    if (e.key === 'Enter') {
+      saveInvoiceNumber(billingId, this.value, cell);
+    } else if (e.key === 'Escape') {
+      cancelInvoiceEdit(cell, currentValue);
+    }
+  });
+
+  // Handle blur (save)
+  input.addEventListener('blur', function() {
+    // Small delay to check if user is clicking on something else
+    setTimeout(() => {
+      if (document.activeElement !== input) {
+        saveInvoiceNumber(billingId, this.value, cell);
+      }
+    }, 100);
+  });
+}
+
+function cancelInvoiceEdit(cell, originalValue) {
+  // Remove editing class
+  cell.classList.remove('editing');
+
+  // Restore original display
+  if (originalValue) {
+    cell.innerHTML = `<span class="invoice-value">${originalValue}</span>`;
+  } else {
+    cell.innerHTML = '<span class="invoice-placeholder">Click to add</span>';
+  }
+
+  // Re-attach click handler
+  setupInvoiceNumberEdit();
+}
+
+async function saveInvoiceNumber(billingId, newValue, cell) {
+  const trimmedValue = newValue.trim();
+
+  try {
+    const response = await fetch(`/api/billing-statements/${billingId}/invoice-number`, {
+      method: 'PUT',
+      headers: getHeaders(),
+      body: JSON.stringify({
+        invoiceNumber: trimmedValue || '' // Empty string to clear
+      })
+    });
+
+    if (response.ok) {
+      const updatedBilling = await response.json();
+
+      // Update cell's data attribute
+      cell.dataset.currentValue = trimmedValue;
+
+      // Update cell display with new value
+      cell.classList.remove('editing');
+      if (trimmedValue) {
+        cell.innerHTML = `<span class="invoice-value">${trimmedValue}</span>`;
+      } else {
+        cell.innerHTML = '<span class="invoice-placeholder">Click to add</span>';
+      }
+
+      // Show success feedback (checkmark animation)
+      showInvoiceSaveSuccess(cell);
+
+      // Re-attach click handler
+      setupInvoiceNumberEdit();
+    } else {
+      const errorData = await response.json();
+      showInvoiceSaveError(cell, errorData.error || 'Failed to save');
+      cell.classList.remove('editing');
+      cell.innerHTML = `<span class="invoice-value">${cell.dataset.currentValue || ''}</span>`;
+      setupInvoiceNumberEdit();
+    }
+  } catch (error) {
+    console.error('Error saving invoice number:', error);
+    showInvoiceSaveError(cell, 'Network error');
+    cell.classList.remove('editing');
+    cell.innerHTML = `<span class="invoice-value">${cell.dataset.currentValue || ''}</span>`;
+    setupInvoiceNumberEdit();
+  }
+}
+
+function showInvoiceSaveSuccess(cell) {
+  const checkmark = document.createElement('span');
+  checkmark.className = 'invoice-checkmark';
+  checkmark.textContent = '✓';
+
+  // Temporarily append checkmark to cell
+  cell.appendChild(checkmark);
+
+  // Remove after animation completes (1.5 seconds)
+  setTimeout(() => {
+    checkmark.remove();
+  }, 1500);
+}
+
+function showInvoiceSaveError(cell, message) {
+  // Show brief error notification
+  showNotification(`Invoice #: ${message}`, 'error');
+
+  // Optional: Add error state to cell briefly
+  cell.classList.add('invoice-error');
+  setTimeout(() => {
+    cell.classList.remove('invoice-error');
+  }, 1500);
+}
+
 function renderUsers(users) {
   const tbody = document.getElementById('usersBody');
 
