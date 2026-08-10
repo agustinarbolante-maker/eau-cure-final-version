@@ -73,6 +73,7 @@ function initBillingStatementsTable() {
         end_date TEXT NOT NULL,
         total_amount REAL NOT NULL,
         is_paid INTEGER DEFAULT 0,
+        invoice_number TEXT DEFAULT NULL,
         created_date TEXT DEFAULT CURRENT_TIMESTAMP,
         paid_date TEXT
       )
