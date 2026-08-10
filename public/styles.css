@@ -952,3 +952,142 @@ tbody tr:last-child td {
     width: 100%;
   }
 }
+
+/* ============================================
+   INVOICE NUMBER COLUMN STYLING
+   ============================================ */
+
+.invoice-number-cell {
+  cursor: pointer;
+  position: relative;
+  padding: 0.5rem;
+}
+
+.invoice-number-cell:hover {
+  background-color: rgba(102, 126, 234, 0.05);
+  border-radius: 4px;
+}
+
+.invoice-placeholder {
+  color: #999;
+  font-style: italic;
+  font-size: 0.9rem;
+}
+
+.invoice-value {
+  font-weight: 500;
+  color: #333;
+}
+
+/* Edit Mode Styling */
+.invoice-number-cell.editing {
+  background-color: #e7f3ff;
+  border: 2px solid #0078d4;
+  border-radius: 4px;
+  padding: 0.25rem;
+}
+
+.invoice-input {
+  width: 100%;
+  padding: 0.35rem;
+  border: none;
+  background-color: transparent;
+  font-size: 1rem;
+  font-weight: 500;
+  font-family: inherit;
+}
+
+.invoice-input:focus {
+  outline: none;
+}
+
+/* Checkmark Animation */
+.invoice-checkmark {
+  display: inline-block;
+  margin-left: 0.5rem;
+  color: #28a745;
+  font-weight: bold;
+  font-size: 1.2rem;
+  animation: fadeOutCheckmark 1.5s ease-out forwards;
+}
+
+@keyframes fadeOutCheckmark {
+  0% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+  }
+}
+
+/* Error State */
+.invoice-number-cell.invoice-error {
+  background-color: #ffe7e7;
+  border-radius: 4px;
+}
+
+/* Filter Group Styling */
+.filter-group {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.filter-group label {
+  font-weight: 500;
+  margin: 0;
+  white-space: nowrap;
+}
+
+.filter-group select {
+  padding: 0.5rem;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  background-color: white;
+  font-size: 1rem;
+  cursor: pointer;
+}
+
+.filter-group select:focus {
+  outline: none;
+  border-color: #667eea;
+  box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+}
+
+/* Dark mode support */
+@media (prefers-color-scheme: dark) {
+  .invoice-value {
+    color: #e0e0e0;
+  }
+
+  .invoice-placeholder {
+    color: #666;
+  }
+
+  .invoice-number-cell:hover {
+    background-color: rgba(102, 126, 234, 0.15);
+  }
+
+  .invoice-number-cell.editing {
+    background-color: #1e3a5f;
+    border-color: #0078d4;
+  }
+
+  .invoice-input {
+    color: #e0e0e0;
+  }
+
+  .invoice-number-cell.invoice-error {
+    background-color: #5f1e1e;
+  }
+
+  .filter-group select {
+    background-color: #2a2a2a;
+    color: #e0e0e0;
+    border-color: #444;
+  }
+
+  .filter-group select:focus {
+    border-color: #667eea;
+  }
+}
