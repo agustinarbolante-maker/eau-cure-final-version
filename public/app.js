@@ -498,7 +498,7 @@ function renderBillings(billings) {
   const tbody = document.getElementById('billingBody');
 
   if (billings.length === 0) {
-    tbody.innerHTML = '<tr class="empty-state"><td colspan="7">No billing statements yet</td></tr>';
+    tbody.innerHTML = '<tr class="empty-state"><td colspan="8">No billing statements yet</td></tr>';
     return;
   }
 
@@ -507,6 +507,9 @@ function renderBillings(billings) {
       <td>${bill.company_name || bill.company || 'Unknown'}</td>
       <td>${bill.start_date ? new Date(bill.start_date).toLocaleDateString() : 'N/A'} - ${bill.end_date ? new Date(bill.end_date).toLocaleDateString() : 'N/A'}</td>
       <td>₱${parseFloat(bill.total_amount || bill.amount || 0).toFixed(2)}</td>
+      <td class="invoice-number-cell" data-billing-id="${bill.id}" data-current-value="${bill.invoice_number || ''}">
+        ${bill.invoice_number ? `<span class="invoice-value">${bill.invoice_number}</span>` : '<span class="invoice-placeholder">Click to add</span>'}
+      </td>
       <td><span class="badge ${bill.is_paid || bill.paid ? 'badge-success' : 'badge-danger'}">${bill.is_paid || bill.paid ? 'Paid' : 'Unpaid'}</span></td>
       <td class="actions">
         <button class="btn btn-secondary btn-sm" onclick="exportBillingExcel(${bill.id}, '${bill.company_name || bill.company}', '${bill.start_date}', '${bill.end_date}')">📊 Excel</button>
@@ -518,6 +521,9 @@ function renderBillings(billings) {
       </td>
     </tr>
   `).join('');
+
+  // Re-attach inline edit handlers after rendering
+  setupInvoiceNumberEdit();
 }
 
 function renderUsers(users) {
