@@ -73,6 +73,7 @@ function initBillingStatementsTable() {
         end_date TEXT NOT NULL,
         total_amount REAL NOT NULL,
         is_paid INTEGER DEFAULT 0,
+        invoice_number TEXT DEFAULT NULL,
         created_date TEXT DEFAULT CURRENT_TIMESTAMP,
         paid_date TEXT
       )
@@ -347,6 +348,33 @@ function deleteBillingStatement(id) {
       function(err) {
         if (err) reject(err);
         else resolve();
+      }
+    );
+  });
+}
+
+function updateBillingInvoiceNumber(id, invoiceNumber) {
+  return new Promise((resolve, reject) => {
+    const invoiceValue = invoiceNumber && invoiceNumber.trim() ? invoiceNumber.trim() : null;
+    db.run(
+      `UPDATE billing_statements SET invoice_number = ? WHERE id = ?`,
+      [invoiceValue, id],
+      function(err) {
+        if (err) {
+          reject(err);
+        } else if (this.changes === 0) {
+          reject(new Error('Billing statement not found'));
+        } else {
+          // Fetch and return updated record
+          db.get(
+            `SELECT * FROM billing_statements WHERE id = ?`,
+            [id],
+            (err, row) => {
+              if (err) reject(err);
+              else resolve(row);
+            }
+          );
+        }
       }
     );
   });
@@ -633,6 +661,7 @@ module.exports = {
   getAllBillingStatements,
   updateBillingStatementStatus,
   deleteBillingStatement,
+  updateBillingInvoiceNumber,
   getDeliveriesByFilters,
   getStats,
   getCompanyStats,

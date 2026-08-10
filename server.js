@@ -251,6 +251,27 @@ app.put('/api/billing-statements/:id', authenticateToken, requireAdminOrHigher, 
   }
 });
 
+// Update invoice number for a billing statement
+app.put('/api/billing-statements/:id/invoice-number', authenticateToken, requireAdminOrHigher, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { invoiceNumber } = req.body;
+
+    if (invoiceNumber === undefined) {
+      return res.status(400).json({ error: 'invoiceNumber is required' });
+    }
+
+    const updatedBilling = await db.updateBillingInvoiceNumber(id, invoiceNumber);
+    res.json(updatedBilling);
+  } catch (err) {
+    if (err.message === 'Billing statement not found') {
+      res.status(404).json({ error: err.message });
+    } else {
+      res.status(500).json({ error: err.message });
+    }
+  }
+});
+
 app.delete('/api/billing-statements/:id', authenticateToken, requireAdminOrHigher, async (req, res) => {
   try {
     const { id } = req.params;
