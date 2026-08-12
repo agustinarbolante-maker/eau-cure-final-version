@@ -1502,10 +1502,9 @@ async function exportBillingPdf(billingId, company, startDate, endDate) {
             .prepared-by { margin-bottom: 0px; }
             .signature-row { display: flex; gap: 8px; align-items: flex-end; margin-bottom: 0px; }
             .signature-label { white-space: nowrap; }
+            .signature-line-container { display: flex; flex-direction: column; align-items: center; }
             .signature-line { border-bottom: 0.5px solid #333; width: 160px; flex-grow: 0; min-height: 1px; }
-            .signature-with-caption { display: flex; gap: 4px; align-items: center; }
-            .signature-line-half { border-bottom: 0.5px solid #333; flex: 1; min-height: 1px; }
-            .signature-caption { font-size: 8px; white-space: nowrap; }
+            .signature-caption { font-size: 8px; margin-top: 1px; text-align: center; }
           </style>
         </head>
         <body>
@@ -1554,10 +1553,9 @@ async function exportBillingPdf(billingId, company, startDate, endDate) {
               <div style="margin-bottom: 15px;">PREPARED BY: ___________________</div>
               <div class="signature-row">
                 <span class="signature-label">Original Invoices / Statement Received By:</span>
-                <div class="signature-with-caption">
-                  <div class="signature-line-half"></div>
-                  <span class="signature-caption">(Signature Over Printed Name)</span>
-                  <div class="signature-line-half"></div>
+                <div class="signature-line-container">
+                  <div class="signature-line"></div>
+                  <div class="signature-caption">(Signature Over Printed Name)</div>
                 </div>
               </div>
             </div>
