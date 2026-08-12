@@ -1502,7 +1502,7 @@ async function exportBillingPdf(billingId, company, startDate, endDate) {
             .prepared-by { margin-bottom: 0px; }
             .signature-row { display: flex; gap: 8px; align-items: flex-end; margin-bottom: 2px; }
             .signature-label { white-space: nowrap; }
-            .signature-line { border-bottom: 0.5px solid #333; width: 200px; flex-grow: 1; min-height: 1px; }
+            .signature-line { border-bottom: 0.5px solid #333; width: 120px; flex-grow: 0; min-height: 1px; }
           </style>
         </head>
         <body>
@@ -1548,7 +1548,7 @@ async function exportBillingPdf(billingId, company, startDate, endDate) {
 
           <div class="footer">
             <div class="prepared-by">
-              <div style="margin-bottom: 15px;">PREPARED BY: _________________________</div>
+              <div style="margin-bottom: 15px;">PREPARED BY: ___________________</div>
               <div class="signature-row">
                 <span class="signature-label">Original Invoices / Statement Received By:</span>
                 <div class="signature-line"></div>
