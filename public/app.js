@@ -395,7 +395,7 @@ async function calculateEarnings(deliveries) {
   }
 }
 
-function renderDeliveryChart(deliveries) {
+function renderDeliveryChart(deliveries, filter = 'week') {
   const canvasContainer = document.getElementById('trendChart')?.parentElement;
   if (!canvasContainer) return;
 
@@ -414,10 +414,10 @@ function renderDeliveryChart(deliveries) {
   newCanvas.id = 'trendChart';
   canvasContainer.appendChild(newCanvas);
 
-  const last7Days = getLast7Days();
+  const dateRange = getDateRangeByFilter(filter);
   const data = {};
 
-  last7Days.forEach(date => { data[date] = 0; });
+  dateRange.forEach(date => { data[date] = 0; });
 
   deliveries.forEach(del => {
     const date = new Date(del.timestamp).toISOString().split('T')[0];
@@ -431,10 +431,10 @@ function renderDeliveryChart(deliveries) {
   trendChart = new Chart(newCanvas, {
     type: 'line',
     data: {
-      labels: last7Days,
+      labels: dateRange,
       datasets: [{
         label: 'Net Bottles (Delivered - Returned)',
-        data: last7Days.map(date => data[date]),
+        data: dateRange.map(date => data[date]),
         borderColor: '#667eea',
         backgroundColor: 'rgba(102, 126, 234, 0.1)',
         tension: 0.4,
@@ -459,6 +459,40 @@ function getLast7Days() {
     date.setDate(date.getDate() - i);
     days.push(date.toISOString().split('T')[0]);
   }
+  return days;
+}
+
+function getDateRangeByFilter(filter) {
+  const days = [];
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+
+  if (filter === 'today') {
+    // Just today
+    days.push(today.toISOString().split('T')[0]);
+  } else if (filter === 'week') {
+    // Last 7 days
+    for (let i = 6; i >= 0; i--) {
+      const date = new Date(today);
+      date.setDate(date.getDate() - i);
+      days.push(date.toISOString().split('T')[0]);
+    }
+  } else if (filter === 'month') {
+    // Last 30 days
+    for (let i = 29; i >= 0; i--) {
+      const date = new Date(today);
+      date.setDate(date.getDate() - i);
+      days.push(date.toISOString().split('T')[0]);
+    }
+  } else if (filter === 'all') {
+    // Last 90 days (or all available data)
+    for (let i = 89; i >= 0; i--) {
+      const date = new Date(today);
+      date.setDate(date.getDate() - i);
+      days.push(date.toISOString().split('T')[0]);
+    }
+  }
+
   return days;
 }
 
@@ -1524,6 +1558,7 @@ async function exportBillingPdf(billingId, company, startDate, endDate) {
 
     const printWindow = window.open('', '', 'height=800,width=900');
     printWindow.document.write(html);
+    printWindow.document.title = `Billing Statement - ${company} - ${new Date(startDate).toLocaleDateString()} to ${new Date(endDate).toLocaleDateString()}`;
     printWindow.document.close();
     printWindow.print();
     showNotification('✓ Billing statement ready to print/save as PDF', 'success');
@@ -2001,9 +2036,24 @@ function renderDeliveryHistory(deliveries, label, startDate, endDate) {
 
 function setupEventListeners() {
   document.querySelectorAll('.overview-tab').forEach(tab => {
-    tab.addEventListener('click', () => {
+    tab.addEventListener('click', async () => {
+      const filter = tab.getAttribute('data-filter');
       document.querySelectorAll('.overview-tab').forEach(t => t.classList.remove('active'));
       tab.classList.add('active');
+
+      // Re-fetch and render dashboard data with the selected filter
+      try {
+        const response = await fetch('/api/deliveries', {
+          headers: getHeaders(),
+          cache: 'no-cache'
+        });
+        if (response.ok) {
+          const deliveries = await response.json();
+          renderDeliveryChart(deliveries, filter);
+        }
+      } catch (error) {
+        console.error('Error loading deliveries for chart:', error);
+      }
     });
   });
 
