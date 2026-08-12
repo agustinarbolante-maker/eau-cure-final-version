@@ -6,6 +6,7 @@ const http = require('http');
 const { Server } = require('socket.io');
 const multer = require('multer');
 const fs = require('fs');
+const puppeteer = require('puppeteer');
 const db = require('./database');
 
 const app = express();
@@ -269,6 +270,46 @@ app.put('/api/billing-statements/:id/invoice-number', authenticateToken, require
     } else {
       res.status(500).json({ error: err.message });
     }
+  }
+});
+
+// POST endpoint to generate PDF server-side with Puppeteer
+app.post('/api/billing-statements/generate-pdf', authenticateToken, requireAdminOrHigher, async (req, res) => {
+  let browser;
+  try {
+    const { html } = req.body;
+
+    if (!html) {
+      return res.status(400).json({ error: 'HTML content is required' });
+    }
+
+    // Launch Puppeteer with Windows-compatible settings
+    browser = await puppeteer.launch({
+      headless: 'new',
+      args: ['--disable-gpu', '--no-sandbox', '--disable-dev-shm-usage']
+    });
+
+    const page = await browser.newPage();
+    await page.setContent(html, { waitUntil: 'networkidle0' });
+
+    // Generate PDF with NO headers/footers - this eliminates "about:blank"
+    const pdfBuffer = await page.pdf({
+      format: 'A4',
+      displayHeaderFooter: false,
+      printBackground: true,
+      margin: { top: 0, bottom: 0, left: 0, right: 0 }
+    });
+
+    await browser.close();
+
+    res.contentType('application/pdf');
+    res.setHeader('Content-Disposition', 'attachment; filename="billing-statement.pdf"');
+    res.send(pdfBuffer);
+
+  } catch (error) {
+    if (browser) await browser.close();
+    console.error('PDF generation error:', error.message);
+    res.status(500).json({ error: 'PDF generation failed: ' + error.message });
   }
 });
 
