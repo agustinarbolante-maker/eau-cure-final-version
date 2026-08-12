@@ -1449,24 +1449,24 @@ async function exportBillingPdf(billingId, company, startDate, endDate) {
       <html>
         <head>
           <style>
-            body { font-family: Arial, sans-serif; margin: 40px; color: #333; }
-            .header { text-align: center; margin-bottom: 30px; }
-            .company-name { font-size: 16px; font-weight: bold; margin-bottom: 5px; }
-            .company-info { font-size: 12px; color: #666; }
-            .statement-header { display: flex; justify-content: space-between; margin-bottom: 30px; align-items: flex-start; }
-            .statement-title { font-size: 20px; font-weight: bold; color: #d32f2f; }
-            .date-range { font-size: 14px; text-align: right; }
-            .bill-to { margin-bottom: 20px; }
+            body { font-family: Arial, sans-serif; margin: 20px; color: #333; font-size: 11px; line-height: 1.3; }
+            .header { text-align: center; margin-bottom: 12px; }
+            .company-name { font-size: 12px; font-weight: bold; margin-bottom: 2px; }
+            .company-info { font-size: 9px; color: #666; line-height: 1.2; }
+            .statement-header { display: flex; justify-content: space-between; margin-bottom: 10px; align-items: flex-start; }
+            .statement-title { font-size: 14px; font-weight: bold; color: #d32f2f; }
+            .date-range { font-size: 10px; text-align: right; }
+            .bill-to { margin-bottom: 8px; font-size: 10px; }
             .bill-to-label { font-weight: bold; }
-            .bill-to-name { font-weight: bold; font-size: 14px; }
-            table { width: 100%; border-collapse: collapse; margin-bottom: 20px; }
-            th { background-color: white; border-bottom: 2px solid #333; padding: 12px; text-align: left; font-weight: bold; }
-            td { padding: 10px 12px; border-bottom: 1px solid #ddd; }
-            .total-row { background-color: #fff; border-top: 2px solid #d32f2f; border-bottom: 2px solid #d32f2f; font-weight: bold; color: #d32f2f; }
-            .total-row td { padding: 12px; }
-            .footer { margin-top: 40px; font-size: 12px; }
-            .prepared-by { margin-bottom: 40px; }
-            .signature-line { border-top: 1px solid #333; width: 300px; margin-top: 40px; }
+            .bill-to-name { font-weight: bold; font-size: 11px; }
+            table { width: 100%; border-collapse: collapse; margin-bottom: 10px; font-size: 10px; }
+            th { background-color: white; border-bottom: 1px solid #333; padding: 4px 6px; text-align: left; font-weight: bold; }
+            td { padding: 3px 5px; border-bottom: 0.5px solid #ddd; }
+            .total-row { background-color: #fff; border-top: 1px solid #d32f2f; border-bottom: 1px solid #d32f2f; font-weight: bold; color: #d32f2f; }
+            .total-row td { padding: 4px 6px; }
+            .footer { margin-top: 15px; font-size: 9px; }
+            .prepared-by { margin-bottom: 20px; }
+            .signature-line { border-top: 0.5px solid #333; width: 200px; margin-top: 15px; }
           </style>
         </head>
         <body>
