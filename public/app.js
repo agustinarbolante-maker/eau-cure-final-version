@@ -1489,18 +1489,18 @@ async function exportBillingPdf(billingId, company, startDate, endDate) {
             .company-info { font-size: 9px; color: #666; line-height: 1.2; }
             .statement-header { display: flex; justify-content: space-between; margin-bottom: 10px; align-items: flex-start; }
             .statement-title { font-size: 14px; font-weight: bold; color: #d32f2f; }
-            .date-range { font-size: 10px; text-align: right; }
-            .bill-to { margin-bottom: 8px; font-size: 10px; }
+            .date-range { font-size: 9px; text-align: right; }
+            .bill-to { margin-bottom: 6px; font-size: 9px; }
             .bill-to-label { font-weight: bold; }
-            .bill-to-name { font-weight: bold; font-size: 11px; }
+            .bill-to-name { font-weight: bold; font-size: 10px; }
             table { width: 100%; border-collapse: collapse; margin-bottom: 10px; font-size: 10px; }
             th { background-color: white; border-bottom: 1px solid #333; padding: 4px 6px; text-align: left; font-weight: bold; }
             td { padding: 3px 5px; border-bottom: 0.5px solid #ddd; }
             .total-row { background-color: #fff; border-top: 1px solid #d32f2f; border-bottom: 1px solid #d32f2f; font-weight: bold; color: #d32f2f; }
             .total-row td { padding: 4px 6px; }
-            .footer { margin-top: 15px; font-size: 9px; }
-            .prepared-by { margin-bottom: 20px; }
-            .signature-line { border-top: 0.5px solid #333; width: 200px; margin-top: 15px; }
+            .footer { margin-top: 10px; font-size: 8px; }
+            .prepared-by { margin-bottom: 15px; }
+            .signature-line { border-top: 0.5px solid #333; width: 200px; margin-top: 2px; margin-bottom: 0px; }
           </style>
         </head>
         <body>
@@ -1546,10 +1546,10 @@ async function exportBillingPdf(billingId, company, startDate, endDate) {
 
           <div class="footer">
             <div class="prepared-by">
-              <div>PREPARED BY: _________________________</div>
-              <div style="margin-top: 30px;">Original Invoices / Statement Received By:</div>
+              <div style="margin-bottom: 15px;">PREPARED BY: _________________________</div>
+              <div style="margin-bottom: 2px; font-size: 8px;">Original Invoices / Statement Received By:</div>
               <div class="signature-line"></div>
-              <div style="font-size: 10px; margin-top: 5px;">(Signature Over Printed Name)</div>
+              <div style="font-size: 7px; margin-top: 1px;">(Signature Over Printed Name)</div>
             </div>
           </div>
         </body>
@@ -2034,12 +2034,28 @@ function renderDeliveryHistory(deliveries, label, startDate, endDate) {
   `).join('');
 }
 
+function getChartTimeRangeLabel(filter) {
+  const labels = {
+    'today': 'Today',
+    'week': 'This Week',
+    'month': 'This Month',
+    'all': 'All Time'
+  };
+  return labels[filter] || 'This Week';
+}
+
 function setupEventListeners() {
   document.querySelectorAll('.overview-tab').forEach(tab => {
     tab.addEventListener('click', async () => {
       const filter = tab.getAttribute('data-filter');
       document.querySelectorAll('.overview-tab').forEach(t => t.classList.remove('active'));
       tab.classList.add('active');
+
+      // Update chart title
+      const chartTimeRangeEl = document.getElementById('chartTimeRange');
+      if (chartTimeRangeEl) {
+        chartTimeRangeEl.textContent = getChartTimeRangeLabel(filter);
+      }
 
       // Re-fetch and render dashboard data with the selected filter
       try {

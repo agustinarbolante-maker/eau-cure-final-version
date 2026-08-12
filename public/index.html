@@ -93,14 +93,6 @@
 
       <!-- DASHBOARD PAGE -->
       <section id="dashboard-page" class="page-content active">
-        <!-- Overview Tabs -->
-        <div class="overview-tabs">
-          <button class="overview-tab active" data-filter="today">Today</button>
-          <button class="overview-tab" data-filter="week">This Week</button>
-          <button class="overview-tab" data-filter="month">This Month</button>
-          <button class="overview-tab" data-filter="all">All Time</button>
-        </div>
-
         <!-- Statistics Grid -->
         <div class="stats-grid">
           <div class="stat-card stat-card-primary">
@@ -148,9 +140,17 @@
           </div>
         </div>
 
+        <!-- Overview Tabs (Time Filter) -->
+        <div class="overview-tabs" style="margin-top: 40px; margin-bottom: 30px;">
+          <button class="overview-tab active" data-filter="today">Today</button>
+          <button class="overview-tab" data-filter="week">This Week</button>
+          <button class="overview-tab" data-filter="month">This Month</button>
+          <button class="overview-tab" data-filter="all">All Time</button>
+        </div>
+
         <!-- Chart Section -->
         <div class="chart-section">
-          <h2>Delivery Trends (7 Days)</h2>
+          <h2>Delivery Trends (<span id="chartTimeRange">This Week</span>)</h2>
           <div class="chart-container">
             <canvas id="trendChart"></canvas>
           </div>
