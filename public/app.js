@@ -1552,7 +1552,7 @@ async function exportBillingPdf(billingId, company, startDate, endDate) {
             <div class="prepared-by">
               <div style="margin-bottom: 15px;">PREPARED BY: ___________________</div>
               <div class="signature-row">
-                <span class="signature-label">Original Invoices / Statement Received By:</span>
+                <span class="signature-label">By:</span>
                 <div class="signature-line-container">
                   <div class="signature-line"></div>
                   <div class="signature-caption">(Signature Over Printed Name)</div>
