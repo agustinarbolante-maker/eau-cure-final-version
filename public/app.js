@@ -1502,7 +1502,7 @@ async function exportBillingPdf(billingId, company, startDate, endDate) {
             .prepared-by { margin-bottom: 0px; }
             .signature-row { display: flex; gap: 8px; align-items: baseline; margin-bottom: 3px; }
             .signature-label { white-space: nowrap; line-height: 1; }
-            .signature-line-container { display: flex; flex-direction: column; align-items: center; flex: 1; }
+            .signature-line-container { display: flex; flex-direction: column; align-items: flex-start; }
             .signature-line { border-bottom: 0.5px solid #333; width: 160px; flex-grow: 0; height: 0.5px; }
             .signature-caption { font-size: 8px; margin-top: 1px; text-align: center; }
           </style>
@@ -1541,8 +1541,8 @@ async function exportBillingPdf(billingId, company, startDate, endDate) {
                 <td></td>
                 <td></td>
                 <td style="text-align: center;">${totalQty}</td>
-                <td>5 gal round</td>
-                <td style="text-align: right;">${unitPrice.toFixed(2)}</td>
+                <td>-</td>
+                <td style="text-align: right;">-</td>
                 <td style="text-align: right;">AMOUNT: ${totalAmount.toLocaleString('en-US', { minimumFractionDigits: 2 })}</td>
               </tr>
             </tbody>
