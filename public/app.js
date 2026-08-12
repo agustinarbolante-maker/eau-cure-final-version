@@ -1498,9 +1498,9 @@ async function exportBillingPdf(billingId, company, startDate, endDate) {
             td { padding: 3px 5px; border-bottom: 0.5px solid #ddd; }
             .total-row { background-color: #fff; border-top: 1px solid #d32f2f; border-bottom: 1px solid #d32f2f; font-weight: bold; color: #d32f2f; }
             .total-row td { padding: 4px 6px; }
-            .footer { margin-top: 10px; font-size: 8px; }
-            .prepared-by { margin-bottom: 15px; }
-            .signature-line { border-top: 0.5px solid #333; width: 200px; margin-top: 2px; margin-bottom: 0px; }
+            .footer { margin-top: 10px; font-size: 9px; }
+            .prepared-by { margin-bottom: 10px; display: flex; gap: 10px; align-items: flex-end; }
+            .signature-line { border-bottom: 0.5px solid #333; width: 250px; flex-shrink: 0; }
           </style>
         </head>
         <body>
@@ -1545,11 +1545,10 @@ async function exportBillingPdf(billingId, company, startDate, endDate) {
           </table>
 
           <div class="footer">
+            <div style="margin-bottom: 15px;">PREPARED BY: _________________________</div>
             <div class="prepared-by">
-              <div style="margin-bottom: 15px;">PREPARED BY: _________________________</div>
-              <div style="margin-bottom: 2px; font-size: 8px;">Original Invoices / Statement Received By:</div>
+              <span style="white-space: nowrap;">Received By:</span>
               <div class="signature-line"></div>
-              <div style="font-size: 7px; margin-top: 1px;">(Signature Over Printed Name)</div>
             </div>
           </div>
         </body>
