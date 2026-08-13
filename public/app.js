@@ -1482,7 +1482,6 @@ async function exportBillingPdf(billingId, company, startDate, endDate) {
     let html = `
       <html>
         <head>
-          <title>Billing Statement - ${company} - ${startDateStr} to ${endDateStr}</title>
           <style>
             body { font-family: Arial, sans-serif; margin: 20px; color: #333; font-size: 11px; line-height: 1.3; }
             .header { text-align: center; margin-bottom: 12px; }
@@ -1565,29 +1564,12 @@ async function exportBillingPdf(billingId, company, startDate, endDate) {
       </html>
     `;
 
-    // Send HTML to server for Puppeteer PDF generation
-    const response = await fetch('/api/billing-statements/generate-pdf', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        ...getHeaders()
-      },
-      body: JSON.stringify({ html })
-    });
-
-    if (!response.ok) {
-      throw new Error('PDF generation failed');
-    }
-
-    const blob = await response.blob();
-    const link = document.createElement('a');
-    const url = URL.createObjectURL(blob);
-    link.href = url;
-    link.download = `billing-statement-${company}-${new Date(startDate).toISOString().split('T')[0]}.pdf`;
-    link.click();
-    URL.revokeObjectURL(url);
-
-    showNotification('✓ PDF downloaded successfully (no headers/footers)', 'success');
+    const printWindow = window.open('', '', 'height=800,width=900');
+    printWindow.document.write(html);
+    printWindow.document.title = `Billing Statement - ${company} - ${new Date(startDate).toLocaleDateString()} to ${new Date(endDate).toLocaleDateString()}`;
+    printWindow.document.close();
+    printWindow.print();
+    showNotification('✓ Billing statement ready to print/save as PDF', 'success');
   } catch (error) {
     console.error('PDF export error:', error);
     showNotification('Error exporting to PDF', 'error');
