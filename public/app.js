@@ -237,7 +237,19 @@ async function loadBillings() {
       }
       // if 'all', no additional filtering
 
-      renderBillings(data);
+      // Apply company filter
+      const selectedCompanies = window.billingCompanyMultiSelect?.getSelectedIds() || 'all';
+      const isAllCompanies = selectedCompanies === 'all';
+
+      if (!isAllCompanies) {
+        const selectedCompanyIds = new Set(Array.isArray(selectedCompanies) ? selectedCompanies : [selectedCompanies]);
+        data = data.filter(b => {
+          const billingCompanyId = b.company_id || (allCompanies.find(c => c.name === b.company)?.id);
+          return selectedCompanyIds.has(billingCompanyId);
+        });
+      }
+
+      renderBillings(data, isAllCompanies, selectedCompanies);
     } else {
       console.error('Error loading billings:', response.status, response.statusText);
     }
@@ -543,17 +555,29 @@ function renderCompanies(companies) {
   `).join('');
 }
 
-function renderBillings(billings) {
+function renderBillings(billings, isAllCompanies, selectedCompanies) {
   const tbody = document.getElementById('billingBody');
+  const thead = document.querySelector('#billingTable thead');
 
   if (billings.length === 0) {
     tbody.innerHTML = '<tr class="empty-state"><td colspan="8">No billing statements yet</td></tr>';
     return;
   }
 
+  // Determine if we should show company column
+  const showCompanyColumn = isAllCompanies || (selectedCompanies && (Array.isArray(selectedCompanies) ? selectedCompanies.length > 1 : false));
+
+  // Update table header to show/hide Company column
+  if (thead) {
+    const companyHeaderCell = thead.querySelector('th:first-child');
+    if (companyHeaderCell) {
+      companyHeaderCell.style.display = showCompanyColumn ? '' : 'none';
+    }
+  }
+
   tbody.innerHTML = billings.map(bill => `
     <tr>
-      <td>${bill.company_name || bill.company || 'Unknown'}</td>
+      <td style="display: ${showCompanyColumn ? '' : 'none'};">${bill.company_name || bill.company || 'Unknown'}</td>
       <td>${bill.start_date ? new Date(bill.start_date).toLocaleDateString() : 'N/A'} - ${bill.end_date ? new Date(bill.end_date).toLocaleDateString() : 'N/A'}</td>
       <td>₱${parseFloat(bill.total_amount || bill.amount || 0).toFixed(2)}</td>
       <td class="invoice-number-cell" data-billing-id="${bill.id}" data-current-value="${bill.invoice_number || ''}">
@@ -1655,7 +1679,7 @@ document.getElementById('deliveryReportForm')?.addEventListener('submit', async 
 
   const startDate = document.getElementById('repStartDate').value;
   const endDate = document.getElementById('repEndDate').value;
-  const companyId = document.getElementById('repCompany').value;
+  const selectedCompanies = window.repCompanyMultiSelect?.getSelectedIds() || 'all';
 
   if (!startDate || !endDate) {
     showNotification('Please select start and end dates', 'error');
@@ -1675,16 +1699,14 @@ document.getElementById('deliveryReportForm')?.addEventListener('submit', async 
       companyMap[c.name] = { id: c.id, unitPrice: parseFloat(c.unit_price) || 0 };
     });
 
-    const isAllCompanies = companyId === 'all';
+    const isAllCompanies = selectedCompanies === 'all';
+    const selectedCompanyIds = isAllCompanies ? null : new Set(Array.isArray(selectedCompanies) ? selectedCompanies : [selectedCompanies]);
     const dateFilter = getDateRangeFilterFunction(startDate, endDate);
 
     // Filter deliveries (with timezone fix)
     let filteredDeliveries = deliveries.filter(del => {
       const inDateRange = dateFilter(del);
-      const inCompany = isAllCompanies || companyMap[del.company]?.id === parseInt(companyId);
-      // Debug logging
-      if (!inDateRange) console.log('Filtered out (date):', del.timestamp, 'Range:', startDate, 'to', endDate);
-      if (!inCompany) console.log('Filtered out (company):', del.company, 'Selected:', companyId);
+      const inCompany = isAllCompanies || selectedCompanyIds.has(companyMap[del.company]?.id);
       return inDateRange && inCompany;
     });
 
@@ -1720,8 +1742,7 @@ document.getElementById('deliveryReportForm')?.addEventListener('submit', async 
       startDate,
       endDate,
       isAllCompanies,
-      selectedCompanyId: companyId,
-      selectedCompanyName: isAllCompanies ? null : document.querySelector(`#repCompany option[value="${companyId}"]`)?.textContent,
+      selectedCompanyIds: selectedCompanyIds,
       deliveries: filteredDeliveries
     };
 
@@ -1737,11 +1758,21 @@ function renderDeliveryReport(reportData) {
   const tbody = document.getElementById('reportTableBody');
   const container = document.getElementById('reportContainer');
   const empty = document.getElementById('reportEmpty');
+  const thead = document.querySelector('#deliveryReportTable thead');
 
   if (reportData.deliveries.length === 0) {
     container.style.display = 'none';
     empty.style.display = 'block';
     return;
+  }
+
+  // Determine if we should show company column
+  const showCompanyColumn = reportData.isAllCompanies || (reportData.selectedCompanyIds && reportData.selectedCompanyIds.size > 1);
+
+  // Update table header to show/hide Company column
+  const companyHeaderCells = thead.querySelectorAll('th');
+  if (companyHeaderCells.length > 0) {
+    companyHeaderCells[0].style.display = showCompanyColumn ? '' : 'none';
   }
 
   container.style.display = 'block';
@@ -1751,7 +1782,7 @@ function renderDeliveryReport(reportData) {
   tbody.innerHTML = reportData.deliveries.map(del => {
     return `
       <tr style="border-bottom: 1px solid #ddd;">
-        <td style="padding: 8px; border: 1px solid #ddd;">${del.company}</td>
+        <td style="padding: 8px; border: 1px solid #ddd; display: ${showCompanyColumn ? '' : 'none'};">${del.company}</td>
         <td style="padding: 8px; border: 1px solid #ddd;">${del.dr_number || '-'}</td>
         <td style="padding: 8px; border: 1px solid #ddd; text-align: center;">${del.qty}</td>
         <td style="padding: 8px; border: 1px solid #ddd; text-align: center;">${del.returns}</td>
@@ -1953,16 +1984,17 @@ function loadAllDeliveriesHistory() {
 document.getElementById('historyShowBtn')?.addEventListener('click', () => {
   const startDate = document.getElementById('historyStartDate').value;
   const endDate = document.getElementById('historyEndDate').value;
+  const selectedCompanies = window.historyCompanyMultiSelect?.getSelectedIds() || 'all';
 
   if (!startDate || !endDate) {
     showNotification('Please select start and end dates', 'error');
     return;
   }
 
-  showDeliveryHistory(startDate, endDate, '');
+  showDeliveryHistory(startDate, endDate, selectedCompanies);
 });
 
-function showDeliveryHistory(startDate, endDate, label) {
+function showDeliveryHistory(startDate, endDate, selectedCompanies) {
   const dateFilter = getDateRangeFilterFunction(startDate, endDate);
 
   // Create company map
@@ -1971,10 +2003,15 @@ function showDeliveryHistory(startDate, endDate, label) {
     companyMap[c.name] = { id: c.id, unitPrice: parseFloat(c.unit_price) || 0 };
   });
 
+  // Handle company filtering
+  const isAllCompanies = selectedCompanies === 'all';
+  const selectedCompanyIds = isAllCompanies ? null : new Set(Array.isArray(selectedCompanies) ? selectedCompanies : [selectedCompanies]);
+
   // Filter deliveries
   let filtered = allDeliveries.filter(del => {
     const inDateRange = dateFilter(del);
-    return inDateRange;
+    const inCompany = isAllCompanies || selectedCompanyIds.has(companyMap[del.company]?.id);
+    return inDateRange && inCompany;
   });
 
   // Sort by date
@@ -1998,14 +2035,15 @@ function showDeliveryHistory(startDate, endDate, label) {
     };
   });
 
-  renderDeliveryHistory(filtered, label, startDate, endDate);
+  renderDeliveryHistory(filtered, startDate, endDate, isAllCompanies, selectedCompanyIds);
 }
 
-function renderDeliveryHistory(deliveries, label, startDate, endDate) {
+function renderDeliveryHistory(deliveries, startDate, endDate, isAllCompanies, selectedCompanyIds) {
   const container = document.getElementById('historyContainer');
   const empty = document.getElementById('historyEmpty');
   const tbody = document.getElementById('historyTableBody');
   const dateRangeEl = document.getElementById('historyDateRange');
+  const thead = document.querySelector('#historyTable thead');
 
   if (deliveries.length === 0) {
     container.style.display = 'none';
@@ -2015,6 +2053,15 @@ function renderDeliveryHistory(deliveries, label, startDate, endDate) {
 
   container.style.display = 'block';
   empty.style.display = 'none';
+
+  // Determine if we should show company column
+  const showCompanyColumn = isAllCompanies || (selectedCompanyIds && selectedCompanyIds.size > 1);
+
+  // Update table header to show/hide Company column
+  const companyHeaderCells = thead.querySelectorAll('th');
+  if (companyHeaderCells.length > 0) {
+    companyHeaderCells[0].style.display = showCompanyColumn ? '' : 'none';
+  }
 
   // Format date range text
   let dateRangeText = '';
@@ -2031,7 +2078,7 @@ function renderDeliveryHistory(deliveries, label, startDate, endDate) {
   // Company | DR # | Delivered | Returned | Unit Price | Earnings | Actions
   tbody.innerHTML = deliveries.map(del => `
     <tr style="border-bottom: 1px solid #ddd;">
-      <td style="padding: 8px; border: 1px solid #ddd;">${del.company}</td>
+      <td style="padding: 8px; border: 1px solid #ddd; display: ${showCompanyColumn ? '' : 'none'};">${del.company}</td>
       <td style="padding: 8px; border: 1px solid #ddd;">${del.dr_number || '-'}</td>
       <td style="padding: 8px; border: 1px solid #ddd; text-align: center;">${del.qty}</td>
       <td style="padding: 8px; border: 1px solid #ddd; text-align: center;">${del.returns}</td>
@@ -2121,3 +2168,189 @@ function showRecordsTab(tabName) {
     activeBtn.style.borderBottom = '3px solid #667eea';
   }
 }
+
+// ============================================
+// MULTI-SELECT COMPONENT
+// ============================================
+
+class MultiSelect {
+  constructor(config) {
+    this.inputEl = config.inputEl;
+    this.dropdownEl = config.dropdownEl;
+    this.options = config.options || [];
+    this.selectedIds = new Set();
+    this.onChangeCallback = config.onChange;
+
+    this.init();
+  }
+
+  init() {
+    this.renderDropdown();
+    this.setupEventListeners();
+  }
+
+  setOptions(options) {
+    this.options = options;
+    this.renderDropdown();
+  }
+
+  renderDropdown() {
+    this.dropdownEl.innerHTML = '';
+
+    // Add "All Companies" option
+    const allOption = document.createElement('div');
+    allOption.className = 'multi-select-option';
+    allOption.innerHTML = `
+      <input type="checkbox" id="option-all" value="all" ${this.selectedIds.size === 0 ? 'checked' : ''}>
+      <label for="option-all">All Companies</label>
+    `;
+    allOption.addEventListener('change', (e) => {
+      if (e.target.checked) {
+        this.selectedIds.clear();
+        this.updateDisplay();
+        this.renderDropdown();
+      }
+    });
+    this.dropdownEl.appendChild(allOption);
+
+    // Add company options
+    this.options.forEach(option => {
+      const optionEl = document.createElement('div');
+      optionEl.className = 'multi-select-option';
+      const isChecked = this.selectedIds.has(String(option.id));
+      optionEl.innerHTML = `
+        <input type="checkbox" id="option-${option.id}" value="${option.id}" ${isChecked ? 'checked' : ''}>
+        <label for="option-${option.id}">${option.name}</label>
+      `;
+      optionEl.addEventListener('change', (e) => {
+        if (e.target.checked) {
+          this.selectedIds.add(String(option.id));
+        } else {
+          this.selectedIds.delete(String(option.id));
+        }
+        this.updateDisplay();
+        if (this.onChangeCallback) this.onChangeCallback(this.getSelectedIds());
+      });
+      this.dropdownEl.appendChild(optionEl);
+    });
+  }
+
+  updateDisplay() {
+    const tagsContainer = this.inputEl;
+    const searchInput = tagsContainer.querySelector('.multi-select-search');
+    const tags = tagsContainer.querySelectorAll('.multi-select-tag');
+    tags.forEach(tag => tag.remove());
+
+    if (this.selectedIds.size === 0) {
+      const allTag = document.createElement('div');
+      allTag.className = 'multi-select-tag all';
+      allTag.innerHTML = 'All Companies';
+      tagsContainer.insertBefore(allTag, searchInput);
+    } else {
+      this.selectedIds.forEach(id => {
+        const option = this.options.find(o => String(o.id) === id);
+        if (option) {
+          const tag = document.createElement('div');
+          tag.className = 'multi-select-tag';
+          tag.innerHTML = `
+            ${option.name}
+            <span class="multi-select-tag-remove" data-id="${option.id}">×</span>
+          `;
+          tag.querySelector('.multi-select-tag-remove').addEventListener('click', () => {
+            this.selectedIds.delete(id);
+            this.updateDisplay();
+            this.renderDropdown();
+            if (this.onChangeCallback) this.onChangeCallback(this.getSelectedIds());
+          });
+          tagsContainer.insertBefore(tag, searchInput);
+        }
+      });
+    }
+  }
+
+  getSelectedIds() {
+    if (this.selectedIds.size === 0) {
+      return 'all';
+    }
+    return Array.from(this.selectedIds).map(id => parseInt(id));
+  }
+
+  setupEventListeners() {
+    const searchInput = this.inputEl.querySelector('.multi-select-search');
+
+    // Toggle dropdown
+    this.inputEl.addEventListener('click', () => {
+      this.dropdownEl.classList.toggle('open');
+    });
+
+    // Close dropdown when clicking outside
+    document.addEventListener('click', (e) => {
+      if (!this.inputEl.contains(e.target) && !this.dropdownEl.contains(e.target)) {
+        this.dropdownEl.classList.remove('open');
+      }
+    });
+
+    // Filter options
+    searchInput.addEventListener('input', (e) => {
+      const query = e.target.value.toLowerCase();
+      const options = this.dropdownEl.querySelectorAll('.multi-select-option');
+      options.forEach(optionEl => {
+        const label = optionEl.querySelector('label').textContent.toLowerCase();
+        optionEl.style.display = label.includes(query) ? '' : 'none';
+      });
+    });
+  }
+}
+
+// Initialize multi-select components when page loads
+document.addEventListener('DOMContentLoaded', async () => {
+  // Wait for companies to be loaded
+  await new Promise(resolve => {
+    const checkCompanies = () => {
+      if (allCompanies && allCompanies.length > 0) {
+        resolve();
+      } else {
+        setTimeout(checkCompanies, 100);
+      }
+    };
+    checkCompanies();
+  });
+
+  // Initialize Delivery Report multi-select
+  const repInput = document.getElementById('repCompanyInput');
+  const repDropdown = document.getElementById('repCompanyDropdown');
+  if (repInput && repDropdown) {
+    window.repCompanyMultiSelect = new MultiSelect({
+      inputEl: repInput,
+      dropdownEl: repDropdown,
+      options: allCompanies,
+      onChange: () => {} // Will be set in the form submit handler
+    });
+  }
+
+  // Initialize Delivery History multi-select
+  const histInput = document.getElementById('historyCompanyInput');
+  const histDropdown = document.getElementById('historyCompanyDropdown');
+  if (histInput && histDropdown) {
+    window.historyCompanyMultiSelect = new MultiSelect({
+      inputEl: histInput,
+      dropdownEl: histDropdown,
+      options: allCompanies,
+      onChange: () => {} // Will be set in the button click handler
+    });
+  }
+
+  // Initialize Billing Statement multi-select
+  const bilInput = document.getElementById('billingCompanyInput');
+  const bilDropdown = document.getElementById('billingCompanyDropdown');
+  if (bilInput && bilDropdown) {
+    window.billingCompanyMultiSelect = new MultiSelect({
+      inputEl: bilInput,
+      dropdownEl: bilDropdown,
+      options: allCompanies,
+      onChange: () => {
+        loadBillings(); // Reload billings with new filter
+      }
+    });
+  }
+});

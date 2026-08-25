@@ -217,8 +217,8 @@
             <!-- Date Range Picker -->
             <div style="background: #f8f9fa; padding: 20px; border-radius: 8px; margin-bottom: 20px;">
               <div class="form-group" style="margin-bottom: 10px;">
-                <label style="display: block; margin-bottom: 8px;">Select Date Range</label>
-                <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px;">
+                <label style="display: block; margin-bottom: 8px;">Select Date Range & Company</label>
+                <div style="display: grid; grid-template-columns: 1fr 1fr 1fr 1fr; gap: 10px;">
                   <div>
                     <label style="font-size: 0.85em; color: #666;">From</label>
                     <input type="date" id="historyStartDate" style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px;">
@@ -226,6 +226,15 @@
                   <div>
                     <label style="font-size: 0.85em; color: #666;">To</label>
                     <input type="date" id="historyEndDate" style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px;">
+                  </div>
+                  <div>
+                    <label style="font-size: 0.85em; color: #666;">Company</label>
+                    <div id="historyCompanyMultiSelect" class="multi-select" style="width: 100%;">
+                      <div class="multi-select-input" id="historyCompanyInput" style="min-height: 36px;">
+                        <input type="text" class="multi-select-search" placeholder="Select..." style="font-size: 0.9em;" />
+                      </div>
+                      <div class="multi-select-dropdown" id="historyCompanyDropdown"></div>
+                    </div>
                   </div>
                   <div style="display: flex; align-items: flex-end;">
                     <button class="btn btn-primary" id="historyShowBtn" style="width: 100%;">Show Deliveries</button>
@@ -281,9 +290,12 @@
                 </div>
                 <div class="form-group" style="margin-bottom: 0;">
                   <label>Company</label>
-                  <select id="repCompany" required style="width: 100%;">
-                    <option value="all">All Companies</option>
-                  </select>
+                  <div id="repCompanyMultiSelect" class="multi-select" style="width: 100%;">
+                    <div class="multi-select-input" id="repCompanyInput">
+                      <input type="text" class="multi-select-search" placeholder="Select companies..." />
+                    </div>
+                    <div class="multi-select-dropdown" id="repCompanyDropdown"></div>
+                  </div>
                 </div>
                 <button type="submit" class="btn btn-primary" style="width: 100%;">Generate Report</button>
               </div>
@@ -395,7 +407,7 @@
         </div>
 
         <h2 style="margin-top: 40px;">Billing Statements</h2>
-        <div style="margin-bottom: 20px; display: flex; gap: 20px; align-items: center;">
+        <div style="margin-bottom: 20px; display: grid; grid-template-columns: 1fr 1fr; gap: 20px; align-items: flex-start;">
           <div class="filter-group">
             <label for="invoiceStatusFilter">Invoice Status:</label>
             <select id="invoiceStatusFilter" onchange="handleInvoiceStatusFilterChange(this.value)">
@@ -403,6 +415,15 @@
               <option value="pending">Pending Invoice</option>
               <option value="has">Has Invoice</option>
             </select>
+          </div>
+          <div class="filter-group">
+            <label>Company:</label>
+            <div id="billingCompanyMultiSelect" class="multi-select" style="width: 100%;">
+              <div class="multi-select-input" id="billingCompanyInput">
+                <input type="text" class="multi-select-search" placeholder="Select companies..." />
+              </div>
+              <div class="multi-select-dropdown" id="billingCompanyDropdown"></div>
+            </div>
           </div>
         </div>
         <div class="table-wrapper">
