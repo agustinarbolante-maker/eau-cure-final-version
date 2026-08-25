@@ -237,19 +237,7 @@ async function loadBillings() {
       }
       // if 'all', no additional filtering
 
-      // Apply company filter
-      const selectedCompanies = window.billingCompanyMultiSelect?.getSelectedIds() || 'all';
-      const isAllCompanies = selectedCompanies === 'all';
-
-      if (!isAllCompanies) {
-        const selectedCompanyIds = new Set(Array.isArray(selectedCompanies) ? selectedCompanies : [selectedCompanies]);
-        data = data.filter(b => {
-          const billingCompanyId = b.company_id || (allCompanies.find(c => c.name === b.company)?.id);
-          return selectedCompanyIds.has(billingCompanyId);
-        });
-      }
-
-      renderBillings(data, isAllCompanies, selectedCompanies);
+      renderBillings(data);
     } else {
       console.error('Error loading billings:', response.status, response.statusText);
     }
@@ -555,29 +543,17 @@ function renderCompanies(companies) {
   `).join('');
 }
 
-function renderBillings(billings, isAllCompanies, selectedCompanies) {
+function renderBillings(billings) {
   const tbody = document.getElementById('billingBody');
-  const thead = document.querySelector('#billingTable thead');
 
   if (billings.length === 0) {
     tbody.innerHTML = '<tr class="empty-state"><td colspan="8">No billing statements yet</td></tr>';
     return;
   }
 
-  // Determine if we should show company column
-  const showCompanyColumn = isAllCompanies || (selectedCompanies && (Array.isArray(selectedCompanies) ? selectedCompanies.length > 1 : false));
-
-  // Update table header to show/hide Company column
-  if (thead) {
-    const companyHeaderCell = thead.querySelector('th:first-child');
-    if (companyHeaderCell) {
-      companyHeaderCell.style.display = showCompanyColumn ? '' : 'none';
-    }
-  }
-
   tbody.innerHTML = billings.map(bill => `
     <tr>
-      <td style="display: ${showCompanyColumn ? '' : 'none'};">${bill.company_name || bill.company || 'Unknown'}</td>
+      <td>${bill.company_name || bill.company || 'Unknown'}</td>
       <td>${bill.start_date ? new Date(bill.start_date).toLocaleDateString() : 'N/A'} - ${bill.end_date ? new Date(bill.end_date).toLocaleDateString() : 'N/A'}</td>
       <td>₱${parseFloat(bill.total_amount || bill.amount || 0).toFixed(2)}</td>
       <td class="invoice-number-cell" data-billing-id="${bill.id}" data-current-value="${bill.invoice_number || ''}">
@@ -1115,80 +1091,87 @@ async function showCompanyStats(id) {
 document.getElementById('billingForm')?.addEventListener('submit', async (e) => {
   e.preventDefault();
 
-  const companyId = parseInt(document.getElementById('bilCompany').value);
+  const selectedCompanies = window.billingCreateCompanyMultiSelect?.getSelectedIds() || 'all';
   const startDate = document.getElementById('bilStartDate').value;
   const endDate = document.getElementById('bilEndDate').value;
 
-  if (!companyId || !startDate || !endDate) {
-    showNotification('Please fill in all fields', 'error');
+  if (!startDate || !endDate) {
+    showNotification('Please select date range', 'error');
+    return;
+  }
+
+  if (selectedCompanies === 'all' || (Array.isArray(selectedCompanies) && selectedCompanies.length === 0)) {
+    showNotification('Please select at least one company', 'error');
     return;
   }
 
   try {
-    // Get company details
+    // Get company details and deliveries
     const companiesResponse = await fetch('/api/companies/all', { headers: getHeaders() });
     const companies = companiesResponse.ok ? await companiesResponse.json() : [];
-    const company = companies.find(c => c.id === companyId);
 
-    if (!company) {
-      showNotification('Company not found', 'error');
-      return;
-    }
-
-    // Get all deliveries
     const deliveriesResponse = await fetch('/api/deliveries', { headers: getHeaders() });
     const deliveries = deliveriesResponse.ok ? await deliveriesResponse.json() : [];
 
-    // Calculate total for this company in date range
-    let totalBottles = 0;
     const startDateObj = new Date(startDate);
     const endDateObj = new Date(endDate);
 
-    deliveries.forEach(del => {
-      const delDate = new Date(del.timestamp);
-      if ((del.company === company.name || del.company_id === companyId) &&
-          delDate >= startDateObj &&
-          delDate <= endDateObj) {
-        totalBottles += (del.bottles_delivered || del.delivered || 0);
+    // Get the company IDs to create billing for
+    const companyIds = Array.isArray(selectedCompanies) ? selectedCompanies : [selectedCompanies];
+    let successCount = 0;
+    let totalCreatedAmount = 0;
+
+    // Create billing statement for each selected company
+    for (const companyId of companyIds) {
+      const company = companies.find(c => c.id === companyId);
+      if (!company) continue;
+
+      // Calculate total for this company in date range
+      let totalBottles = 0;
+      deliveries.forEach(del => {
+        const delDate = new Date(del.timestamp);
+        if ((del.company === company.name || del.company_id === companyId) &&
+            delDate >= startDateObj &&
+            delDate <= endDateObj) {
+          totalBottles += (del.bottles_delivered || del.delivered || 0);
+        }
+      });
+
+      const unitPrice = parseFloat(company.unit_price) || 0;
+      const totalAmount = totalBottles * unitPrice;
+
+      // Create billing statement for this company
+      const data = {
+        company: company.name,
+        startDate: startDate,
+        endDate: endDate,
+        totalAmount: totalAmount
+      };
+
+      const response = await fetch('/api/billing-statements', {
+        method: 'POST',
+        headers: getHeaders(),
+        body: JSON.stringify(data)
+      });
+
+      if (response.ok) {
+        successCount++;
+        totalCreatedAmount += totalAmount;
       }
-    });
+    }
 
-    const unitPrice = parseFloat(company.unit_price) || 0;
-    const totalAmount = totalBottles * unitPrice;
-
-    // Create billing statement
-    const data = {
-      company: company.name,
-      startDate: startDate,
-      endDate: endDate,
-      totalAmount: totalAmount
-    };
-
-    console.log('Sending billing data:', data);
-
-    const response = await fetch('/api/billing-statements', {
-      method: 'POST',
-      headers: getHeaders(),
-      body: JSON.stringify(data)
-    });
-
-    console.log('Billing response status:', response.status);
-
-    if (response.ok) {
-      showNotification(`✓ Billing created! ${company.name} - ₱${totalAmount.toFixed(2)} (${totalBottles} bottles)`, 'success');
+    if (successCount > 0) {
+      showNotification(`✓ Created ${successCount} billing statement(s) - Total: ₱${totalCreatedAmount.toFixed(2)}`, 'success');
       document.getElementById('billingForm').reset();
+      window.billingCreateCompanyMultiSelect.selectedIds.clear();
+      window.billingCreateCompanyMultiSelect.updateDisplay();
       loadBillings();
     } else {
-      const errorText = await response.text();
-      let errorMsg = 'Error creating billing statement';
-      try {
-        const errorJson = JSON.parse(errorText);
-        errorMsg = errorJson.error || errorJson.message || errorMsg;
-      } catch (e) {
-        errorMsg = errorText || errorMsg;
-      }
-      console.error('Billing API Error:', errorMsg);
-      showNotification(errorMsg, 'error');
+      showNotification('Error creating billing statement', 'error');
+    }
+
+    if (successCount === 0) {
+      showNotification('Failed to create any billing statements', 'error');
     }
   } catch (error) {
     console.error('Error creating billing:', error);
@@ -2316,7 +2299,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     checkCompanies();
   });
 
-  // Initialize Delivery Report multi-select
+  // Initialize Delivery Report multi-select (INDEPENDENT state)
   const repInput = document.getElementById('repCompanyInput');
   const repDropdown = document.getElementById('repCompanyDropdown');
   if (repInput && repDropdown) {
@@ -2324,11 +2307,11 @@ document.addEventListener('DOMContentLoaded', async () => {
       inputEl: repInput,
       dropdownEl: repDropdown,
       options: allCompanies,
-      onChange: () => {} // Will be set in the form submit handler
+      onChange: () => {} // Independent from Delivery History
     });
   }
 
-  // Initialize Delivery History multi-select
+  // Initialize Delivery History multi-select (INDEPENDENT state)
   const histInput = document.getElementById('historyCompanyInput');
   const histDropdown = document.getElementById('historyCompanyDropdown');
   if (histInput && histDropdown) {
@@ -2336,21 +2319,19 @@ document.addEventListener('DOMContentLoaded', async () => {
       inputEl: histInput,
       dropdownEl: histDropdown,
       options: allCompanies,
-      onChange: () => {} // Will be set in the button click handler
+      onChange: () => {} // Independent from Delivery Report
     });
   }
 
-  // Initialize Billing Statement multi-select
-  const bilInput = document.getElementById('billingCompanyInput');
-  const bilDropdown = document.getElementById('billingCompanyDropdown');
-  if (bilInput && bilDropdown) {
-    window.billingCompanyMultiSelect = new MultiSelect({
-      inputEl: bilInput,
-      dropdownEl: bilDropdown,
+  // Initialize Billing Statement Creation multi-select
+  const bilCreateInput = document.getElementById('billingCreateCompanyInput');
+  const bilCreateDropdown = document.getElementById('billingCreateCompanyDropdown');
+  if (bilCreateInput && bilCreateDropdown) {
+    window.billingCreateCompanyMultiSelect = new MultiSelect({
+      inputEl: bilCreateInput,
+      dropdownEl: bilCreateDropdown,
       options: allCompanies,
-      onChange: () => {
-        loadBillings(); // Reload billings with new filter
-      }
+      onChange: () => {} // Used in form submission
     });
   }
 });

@@ -389,8 +389,13 @@
           <p style="color: #666; margin-bottom: 20px; font-size: 0.95em;">Select company and date range - billing details will be calculated from deliveries</p>
           <form id="billingForm">
             <div class="form-group">
-              <label>Company</label>
-              <select id="bilCompany" required></select>
+              <label>Company/Companies</label>
+              <div id="billingCreateCompanyMultiSelect" class="multi-select" style="width: 100%;">
+                <div class="multi-select-input" id="billingCreateCompanyInput">
+                  <input type="text" class="multi-select-search" placeholder="Select companies..." />
+                </div>
+                <div class="multi-select-dropdown" id="billingCreateCompanyDropdown"></div>
+              </div>
             </div>
             <div class="form-row">
               <div class="form-group">
@@ -407,7 +412,7 @@
         </div>
 
         <h2 style="margin-top: 40px;">Billing Statements</h2>
-        <div style="margin-bottom: 20px; display: grid; grid-template-columns: 1fr 1fr; gap: 20px; align-items: flex-start;">
+        <div style="margin-bottom: 20px; display: flex; gap: 20px; align-items: center;">
           <div class="filter-group">
             <label for="invoiceStatusFilter">Invoice Status:</label>
             <select id="invoiceStatusFilter" onchange="handleInvoiceStatusFilterChange(this.value)">
@@ -415,15 +420,6 @@
               <option value="pending">Pending Invoice</option>
               <option value="has">Has Invoice</option>
             </select>
-          </div>
-          <div class="filter-group">
-            <label>Company:</label>
-            <div id="billingCompanyMultiSelect" class="multi-select" style="width: 100%;">
-              <div class="multi-select-input" id="billingCompanyInput">
-                <input type="text" class="multi-select-search" placeholder="Select companies..." />
-              </div>
-              <div class="multi-select-dropdown" id="billingCompanyDropdown"></div>
-            </div>
           </div>
         </div>
         <div class="table-wrapper">
