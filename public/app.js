@@ -2163,6 +2163,8 @@ class MultiSelect {
     this.options = config.options || [];
     this.selectedIds = new Set();
     this.onChangeCallback = config.onChange;
+    // Use unique prefix from dropdownEl ID to prevent duplicate checkbox IDs across tabs
+    this.idPrefix = config.dropdownEl?.id?.replace('Dropdown', '') || 'select';
 
     this.init();
   }
@@ -2183,16 +2185,22 @@ class MultiSelect {
     // Add "All Companies" option
     const allOption = document.createElement('div');
     allOption.className = 'multi-select-option';
+    const allCheckboxId = `${this.idPrefix}-option-all`;
     allOption.innerHTML = `
-      <input type="checkbox" id="option-all" value="all" ${this.selectedIds.size === 0 ? 'checked' : ''}>
-      <label for="option-all">All Companies</label>
+      <input type="checkbox" id="${allCheckboxId}" value="all" ${this.selectedIds.size === 0 ? 'checked' : ''}>
+      <label for="${allCheckboxId}">All Companies</label>
     `;
     allOption.addEventListener('change', (e) => {
+      e.stopPropagation(); // Prevent click from bubbling to document listener
       if (e.target.checked) {
         this.selectedIds.clear();
         this.updateDisplay();
         this.renderDropdown();
       }
+    });
+    // Prevent dropdown from closing when clicking on the "All Companies" option
+    allOption.addEventListener('click', (e) => {
+      e.stopPropagation();
     });
     this.dropdownEl.appendChild(allOption);
 
@@ -2201,11 +2209,13 @@ class MultiSelect {
       const optionEl = document.createElement('div');
       optionEl.className = 'multi-select-option';
       const isChecked = this.selectedIds.has(String(option.id));
+      const checkboxId = `${this.idPrefix}-option-${option.id}`;
       optionEl.innerHTML = `
-        <input type="checkbox" id="option-${option.id}" value="${option.id}" ${isChecked ? 'checked' : ''}>
-        <label for="option-${option.id}">${option.name}</label>
+        <input type="checkbox" id="${checkboxId}" value="${option.id}" ${isChecked ? 'checked' : ''}>
+        <label for="${checkboxId}">${option.name}</label>
       `;
       optionEl.addEventListener('change', (e) => {
+        e.stopPropagation(); // Prevent click from bubbling to document listener
         if (e.target.checked) {
           this.selectedIds.add(String(option.id));
         } else {
@@ -2213,6 +2223,10 @@ class MultiSelect {
         }
         this.updateDisplay();
         if (this.onChangeCallback) this.onChangeCallback(this.getSelectedIds());
+      });
+      // Prevent dropdown from closing when clicking on the option
+      optionEl.addEventListener('click', (e) => {
+        e.stopPropagation();
       });
       this.dropdownEl.appendChild(optionEl);
     });
