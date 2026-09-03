@@ -553,7 +553,6 @@ function renderBillings(billings) {
 
   tbody.innerHTML = billings.map(bill => `
     <tr>
-      <td>${bill.company_name || bill.company || 'Unknown'}</td>
       <td>${bill.start_date ? new Date(bill.start_date).toLocaleDateString() : 'N/A'} - ${bill.end_date ? new Date(bill.end_date).toLocaleDateString() : 'N/A'}</td>
       <td>₱${parseFloat(bill.total_amount || bill.amount || 0).toFixed(2)}</td>
       <td class="invoice-number-cell" data-billing-id="${bill.id}" data-current-value="${bill.invoice_number || ''}">
@@ -1118,60 +1117,62 @@ document.getElementById('billingForm')?.addEventListener('submit', async (e) => 
 
     // Get the company IDs to create billing for
     const companyIds = Array.isArray(selectedCompanies) ? selectedCompanies : [selectedCompanies];
-    let successCount = 0;
-    let totalCreatedAmount = 0;
 
-    // Create billing statement for each selected company
-    for (const companyId of companyIds) {
-      const company = companies.find(c => c.id === companyId);
-      if (!company) continue;
+    // Get company names for all selected companies
+    const selectedCompanyNames = companyIds
+      .map(id => companies.find(c => c.id === id)?.name)
+      .filter(name => name);
 
-      // Calculate total for this company in date range
-      let totalBottles = 0;
-      deliveries.forEach(del => {
-        const delDate = new Date(del.timestamp);
-        if ((del.company === company.name || del.company_id === companyId) &&
-            delDate >= startDateObj &&
-            delDate <= endDateObj) {
-          totalBottles += (del.bottles_delivered || del.delivered || 0);
-        }
-      });
-
-      const unitPrice = parseFloat(company.unit_price) || 0;
-      const totalAmount = totalBottles * unitPrice;
-
-      // Create billing statement for this company
-      const data = {
-        company: company.name,
-        startDate: startDate,
-        endDate: endDate,
-        totalAmount: totalAmount
-      };
-
-      const response = await fetch('/api/billing-statements', {
-        method: 'POST',
-        headers: getHeaders(),
-        body: JSON.stringify(data)
-      });
-
-      if (response.ok) {
-        successCount++;
-        totalCreatedAmount += totalAmount;
-      }
+    if (selectedCompanyNames.length === 0) {
+      showNotification('No valid companies selected', 'error');
+      return;
     }
 
-    if (successCount > 0) {
-      showNotification(`✓ Created ${successCount} billing statement(s) - Total: ₱${totalCreatedAmount.toFixed(2)}`, 'success');
+    // Calculate total amount across ALL selected companies
+    let totalBottles = 0;
+    let totalUnitPrice = 0;
+
+    companyIds.forEach(companyId => {
+      const company = companies.find(c => c.id === companyId);
+      if (!company) return;
+
+      const companyDeliveries = deliveries.filter(del => {
+        const delDate = new Date(del.timestamp);
+        return (del.company === company.name || del.company_id === companyId) &&
+               delDate >= startDateObj &&
+               delDate <= endDateObj;
+      });
+
+      const bottles = companyDeliveries.reduce((sum, del) => sum + (del.bottles_delivered || del.delivered || 0), 0);
+      totalBottles += bottles;
+      totalUnitPrice = Math.max(totalUnitPrice, parseFloat(company.unit_price) || 0);
+    });
+
+    const totalAmount = totalBottles * totalUnitPrice;
+
+    // Create ONE combined billing statement for all selected companies
+    // Store company names as JSON array in company_name field
+    const data = {
+      company: JSON.stringify(selectedCompanyNames),
+      startDate: startDate,
+      endDate: endDate,
+      totalAmount: totalAmount
+    };
+
+    const response = await fetch('/api/billing-statements', {
+      method: 'POST',
+      headers: getHeaders(),
+      body: JSON.stringify(data)
+    });
+
+    if (response.ok) {
+      showNotification(`✓ Created combined billing statement for ${selectedCompanyNames.length} company(ies) - Total: ₱${totalAmount.toFixed(2)}`, 'success');
       document.getElementById('billingForm').reset();
       window.billingCreateCompanyMultiSelect.selectedIds.clear();
       window.billingCreateCompanyMultiSelect.updateDisplay();
       loadBillings();
     } else {
       showNotification('Error creating billing statement', 'error');
-    }
-
-    if (successCount === 0) {
-      showNotification('Failed to create any billing statements', 'error');
     }
   } catch (error) {
     console.error('Error creating billing:', error);
@@ -1381,11 +1382,9 @@ document.getElementById('backupBtn')?.addEventListener('click', async () => {
 
 async function exportBillingExcel(billingId, company, startDate, endDate) {
   try {
-    // Fetch companies to get current unit price
+    // Fetch companies to get current unit prices
     const companiesResponse = await fetch('/api/companies/all', { headers: getHeaders() });
-    const companies = companiesResponse.ok ? await companiesResponse.json() : [];
-    const companyData = companies.find(c => c.name === company || c.id == company);
-    const unitPrice = companyData ? parseFloat(companyData.unit_price) : 0;
+    const companiesAll = companiesResponse.ok ? await companiesResponse.json() : [];
 
     const deliveriesResponse = await fetch('/api/deliveries', { headers: getHeaders() });
     const deliveries = deliveriesResponse.ok ? await deliveriesResponse.json() : [];
@@ -1393,10 +1392,31 @@ async function exportBillingExcel(billingId, company, startDate, endDate) {
     const startDateObj = new Date(startDate);
     const endDateObj = new Date(endDate);
 
-    // Filter deliveries for this billing statement
+    // Parse company field (could be JSON array or single string)
+    let companyNames = [];
+    try {
+      companyNames = JSON.parse(company);
+      if (!Array.isArray(companyNames)) {
+        companyNames = [company];
+      }
+    } catch (e) {
+      // Not JSON, treat as single company name
+      companyNames = [company];
+    }
+
+    // Get average unit price from selected companies
+    let totalUnitPrice = 0;
+    companyNames.forEach(name => {
+      const companyData = companiesAll.find(c => c.name === name);
+      if (companyData) {
+        totalUnitPrice = Math.max(totalUnitPrice, parseFloat(companyData.unit_price) || 0);
+      }
+    });
+
+    // Filter deliveries for ALL selected companies in this billing statement
     const billingDeliveries = deliveries.filter(d => {
       const delDate = new Date(d.timestamp);
-      return (d.company === company || d.company_id === company) &&
+      return companyNames.includes(d.company) &&
              delDate >= startDateObj &&
              delDate <= endDateObj;
     }).sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp));
@@ -1406,7 +1426,7 @@ async function exportBillingExcel(billingId, company, startDate, endDate) {
     csv += 'F33 A. Soriano Highway, Daang Amaya, Tanza, Cavite\n';
     csv += '(046) 437-6331\n\n';
     csv += `Billing Statement: ${new Date(startDate).toLocaleDateString()} - ${new Date(endDate).toLocaleDateString()}\n`;
-    csv += `BILL TO: ${company}\n\n`;
+    csv += `BILL TO: ${companyNames.join(', ')}\n\n`;
     csv += 'Date,DR #,QTY,Particulars,Unit Price,Amount\n';
 
     let totalQty = 0;
@@ -1414,12 +1434,12 @@ async function exportBillingExcel(billingId, company, startDate, endDate) {
 
     billingDeliveries.forEach(d => {
       const qty = d.bottles_delivered || d.delivered || 0;
-      const amount = qty * unitPrice;
+      const amount = qty * totalUnitPrice;
       totalQty += qty;
       totalAmount += amount;
 
       const dateStr = new Date(d.timestamp).toLocaleDateString();
-      csv += `${dateStr},${d.dr_number || ''},${qty},5 gal round,${unitPrice.toFixed(2)},${amount.toFixed(2)}\n`;
+      csv += `${dateStr},${d.dr_number || ''},${qty},5 gal round,${totalUnitPrice.toFixed(2)},${amount.toFixed(2)}\n`;
     });
 
     csv += `\nTOTAL,${totalQty},5 gal round,,${totalAmount.toFixed(2)}\n`;
@@ -1429,7 +1449,8 @@ async function exportBillingExcel(billingId, company, startDate, endDate) {
     const link = document.createElement('a');
     const url = URL.createObjectURL(blob);
     link.setAttribute('href', url);
-    link.setAttribute('download', `${company}-billing-${new Date(startDate).toISOString().split('T')[0]}.csv`);
+    const filename = companyNames.length === 1 ? companyNames[0] : 'combined';
+    link.setAttribute('download', `${filename}-billing-${new Date(startDate).toISOString().split('T')[0]}.csv`);
     link.click();
     showNotification('✓ Billing statement exported to Excel', 'success');
   } catch (error) {
@@ -1440,11 +1461,9 @@ async function exportBillingExcel(billingId, company, startDate, endDate) {
 
 async function exportBillingPdf(billingId, company, startDate, endDate) {
   try {
-    // Fetch companies to get current unit price
+    // Fetch companies to get current unit prices
     const companiesResponse = await fetch('/api/companies/all', { headers: getHeaders() });
-    const companies = companiesResponse.ok ? await companiesResponse.json() : [];
-    const companyData = companies.find(c => c.name === company || c.id == company);
-    const unitPrice = companyData ? parseFloat(companyData.unit_price) : 0;
+    const companiesAll = companiesResponse.ok ? await companiesResponse.json() : [];
 
     const deliveriesResponse = await fetch('/api/deliveries', { headers: getHeaders() });
     const deliveries = deliveriesResponse.ok ? await deliveriesResponse.json() : [];
@@ -1452,10 +1471,31 @@ async function exportBillingPdf(billingId, company, startDate, endDate) {
     const startDateObj = new Date(startDate);
     const endDateObj = new Date(endDate);
 
-    // Filter deliveries for this billing statement
+    // Parse company field (could be JSON array or single string)
+    let companyNames = [];
+    try {
+      companyNames = JSON.parse(company);
+      if (!Array.isArray(companyNames)) {
+        companyNames = [company];
+      }
+    } catch (e) {
+      // Not JSON, treat as single company name
+      companyNames = [company];
+    }
+
+    // Get average unit price from selected companies
+    let totalUnitPrice = 0;
+    companyNames.forEach(name => {
+      const companyData = companiesAll.find(c => c.name === name);
+      if (companyData) {
+        totalUnitPrice = Math.max(totalUnitPrice, parseFloat(companyData.unit_price) || 0);
+      }
+    });
+
+    // Filter deliveries for ALL selected companies in this billing statement
     const billingDeliveries = deliveries.filter(d => {
       const delDate = new Date(d.timestamp);
-      return (d.company === company || d.company_id === company) &&
+      return companyNames.includes(d.company) &&
              delDate >= startDateObj &&
              delDate <= endDateObj;
     }).sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp));
@@ -1466,7 +1506,7 @@ async function exportBillingPdf(billingId, company, startDate, endDate) {
 
     billingDeliveries.forEach(d => {
       const qty = d.bottles_delivered || d.delivered || 0;
-      const amount = qty * unitPrice;
+      const amount = qty * totalUnitPrice;
       totalQty += qty;
       totalAmount += amount;
 
@@ -1477,7 +1517,7 @@ async function exportBillingPdf(billingId, company, startDate, endDate) {
           <td>${d.dr_number || ''}</td>
           <td style="text-align: center;">${qty}</td>
           <td>5 gal round</td>
-          <td style="text-align: right;">${unitPrice.toFixed(2)}</td>
+          <td style="text-align: right;">${totalUnitPrice.toFixed(2)}</td>
           <td style="text-align: right;">${amount.toLocaleString('en-US', { minimumFractionDigits: 2 })}</td>
         </tr>
       `;
@@ -1528,7 +1568,7 @@ async function exportBillingPdf(billingId, company, startDate, endDate) {
 
           <div class="bill-to">
             <span class="bill-to-label">BILL TO:</span>
-            <span class="bill-to-name">${company}</span>
+            <span class="bill-to-name">${companyNames.join(', ')}</span>
           </div>
 
           <table>
@@ -1573,7 +1613,7 @@ async function exportBillingPdf(billingId, company, startDate, endDate) {
 
     const printWindow = window.open('', '', 'height=800,width=900');
     printWindow.document.write(html);
-    printWindow.document.title = `Billing Statement - ${company} - ${new Date(startDate).toLocaleDateString()} to ${new Date(endDate).toLocaleDateString()}`;
+    printWindow.document.title = `Billing Statement - ${companyNames.join(', ')} - ${new Date(startDate).toLocaleDateString()} to ${new Date(endDate).toLocaleDateString()}`;
     printWindow.document.close();
     printWindow.print();
     showNotification('✓ Billing statement ready to print/save as PDF', 'success');
