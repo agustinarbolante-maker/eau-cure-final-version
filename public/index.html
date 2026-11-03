@@ -66,6 +66,10 @@
           <span class="icon">💰</span>
           <span class="label">Billing</span>
         </button>
+        <button class="nav-btn" data-page="expenses">
+          <span class="icon">🧾</span>
+          <span class="label">Expenses</span>
+        </button>
         <button class="nav-btn admin-only" data-page="settings" style="display: none;">
           <span class="icon">⚙️</span>
           <span class="label">Settings</span>
@@ -142,15 +146,22 @@
 
         <!-- Overview Tabs (Time Filter) -->
         <div class="overview-tabs" style="margin-top: 40px; margin-bottom: 30px;">
-          <button class="overview-tab active" data-filter="today">Today</button>
-          <button class="overview-tab" data-filter="week">This Week</button>
+          <button class="overview-tab" data-filter="today">Today</button>
+          <button class="overview-tab active" data-filter="week">This Week</button>
           <button class="overview-tab" data-filter="month">This Month</button>
           <button class="overview-tab" data-filter="all">All Time</button>
         </div>
 
         <!-- Chart Section -->
         <div class="chart-section">
-          <h2>Delivery Trends (<span id="chartTimeRange">This Week</span>)</h2>
+          <div class="chart-header">
+            <h2><span id="trendMetricLabel">Sales</span> Trend (<span id="chartTimeRange">This Week</span>)</h2>
+            <div class="trend-metric-tabs">
+              <button class="trend-metric-tab active" data-metric="sales">Sales</button>
+              <button class="trend-metric-tab" data-metric="expenses">Expenses</button>
+              <button class="trend-metric-tab" data-metric="income">Income</button>
+            </div>
+          </div>
           <div class="chart-container">
             <canvas id="trendChart"></canvas>
           </div>
@@ -209,6 +220,7 @@
         <div style="display: flex; gap: 0; margin-bottom: 30px; border-bottom: 2px solid #ddd;">
           <button class="records-tab active" data-tab="history" style="padding: 12px 20px; background: none; border: none; cursor: pointer; font-weight: 500; color: #667eea; border-bottom: 3px solid #667eea; margin-bottom: -2px;">📋 Delivery History</button>
           <button class="records-tab" data-tab="report" style="padding: 12px 20px; background: none; border: none; cursor: pointer; font-weight: 500; color: #999; border-bottom: 3px solid transparent; margin-bottom: -2px;">📊 Delivery Report</button>
+          <button class="records-tab" data-tab="summary" style="padding: 12px 20px; background: none; border: none; cursor: pointer; font-weight: 500; color: #999; border-bottom: 3px solid transparent; margin-bottom: -2px;">🧮 Sales &amp; Expenses Summary</button>
         </div>
 
         <!-- HISTORY TAB (DEFAULT) -->
@@ -342,6 +354,83 @@
             </div>
           </div>
         </div>
+
+        <!-- SALES & EXPENSES SUMMARY TAB -->
+        <div id="summaryTab" class="records-tab-content" style="display: none;">
+          <div style="max-width: 1000px;">
+            <form id="summaryReportForm" class="report-filter-form">
+              <div class="form-group">
+                <label>Period</label>
+                <select id="sumPeriod">
+                  <option value="daily">Daily</option>
+                  <option value="weekly">Weekly (Mon–Sun)</option>
+                  <option value="custom">Custom Range</option>
+                </select>
+              </div>
+              <div class="form-group" id="sumDateGroup">
+                <label id="sumDateLabel">Date</label>
+                <input type="date" id="sumDate" required>
+              </div>
+              <div class="form-group" id="sumStartGroup" style="display: none;">
+                <label>Start Date</label>
+                <input type="date" id="sumStartDate">
+              </div>
+              <div class="form-group" id="sumEndGroup" style="display: none;">
+                <label>End Date</label>
+                <input type="date" id="sumEndDate">
+              </div>
+              <button type="submit" class="btn btn-primary">Generate Summary</button>
+            </form>
+
+            <div id="summaryEmpty" style="text-align: center; color: #999; padding: 40px;">
+              <p>Choose a period and click "Generate Summary"</p>
+            </div>
+
+            <div id="summaryContainer" style="display: none;">
+              <div class="table-actions" style="margin-bottom: 15px; display: flex; justify-content: space-between; align-items: center;">
+                <h3 id="summaryPeriodLabel" style="margin: 0;"></h3>
+                <button class="btn btn-secondary btn-sm" id="summaryPrintBtn">🖨️ Print</button>
+              </div>
+
+              <div class="summary-totals">
+                <div class="stat-card stat-card-success">
+                  <h3>Total Sales</h3>
+                  <p class="stat-value" id="sumTotalSales">₱0.00</p>
+                  <p class="summary-sub" id="sumSalesDetail"></p>
+                </div>
+                <div class="stat-card stat-card-warning">
+                  <h3>Total Expenses</h3>
+                  <p class="stat-value" id="sumTotalExpenses">₱0.00</p>
+                </div>
+                <div class="stat-card stat-card-primary">
+                  <h3>Net Income</h3>
+                  <p class="stat-value" id="sumNetIncome">₱0.00</p>
+                </div>
+              </div>
+
+              <h3 style="margin-top: 30px;">Expenses by Category</h3>
+              <div class="table-wrapper">
+                <table>
+                  <thead>
+                    <tr>
+                      <th>Category</th>
+                      <th style="text-align: center;">Entries</th>
+                      <th style="text-align: right;">Amount</th>
+                    </tr>
+                  </thead>
+                  <tbody id="summaryCategoryBody"></tbody>
+                  <tfoot>
+                    <tr style="font-weight: bold;">
+                      <td>TOTAL EXPENSES</td>
+                      <td></td>
+                      <td style="text-align: right;" id="summaryCategoryTotal">₱0.00</td>
+                    </tr>
+                  </tfoot>
+                </table>
+              </div>
+            </div>
+          </div>
+        </div>
       </section>
 
       <!-- COMPANIES PAGE -->
@@ -441,6 +530,76 @@
         </div>
       </section>
 
+      <!-- EXPENSES PAGE -->
+      <section id="expenses-page" class="page-content">
+        <div class="page-grid">
+          <div class="form-section">
+            <h2>Add Expense</h2>
+            <form id="expenseForm">
+              <div class="form-row">
+                <div class="form-group">
+                  <label>Date</label>
+                  <input type="date" id="expDate" required>
+                </div>
+                <div class="form-group">
+                  <label>Amount (₱)</label>
+                  <input type="number" id="expAmount" placeholder="0.00" step="0.01" min="0.01" required>
+                </div>
+              </div>
+              <div class="form-group">
+                <label>Category</label>
+                <select id="expCategory" class="expense-category-select" required></select>
+              </div>
+              <div class="form-group">
+                <label>Notes (optional)</label>
+                <textarea id="expNotes" placeholder="e.g., Meralco bill for October"></textarea>
+              </div>
+              <button type="submit" class="btn btn-primary">Add Expense</button>
+            </form>
+          </div>
+        </div>
+
+        <h2>Expenses List</h2>
+        <form id="expenseFilterForm" class="report-filter-form">
+          <div class="form-group">
+            <label>From</label>
+            <input type="date" id="expFilterStart">
+          </div>
+          <div class="form-group">
+            <label>To</label>
+            <input type="date" id="expFilterEnd">
+          </div>
+          <div class="form-group">
+            <label>Category</label>
+            <select id="expFilterCategory" class="expense-category-select" data-include-all="true"></select>
+          </div>
+          <button type="submit" class="btn btn-primary">Filter</button>
+          <button type="button" class="btn btn-secondary" id="expFilterClear">Clear</button>
+        </form>
+        <div class="table-wrapper">
+          <table id="expensesTable">
+            <thead>
+              <tr>
+                <th>Date</th>
+                <th>Category</th>
+                <th style="text-align: right;">Amount</th>
+                <th>Notes</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody id="expensesBody">
+              <tr class="empty-state"><td colspan="5">No expenses yet</td></tr>
+            </tbody>
+            <tfoot>
+              <tr style="font-weight: bold;">
+                <td colspan="2">TOTAL (<span id="expensesCount">0</span> entries)</td>
+                <td style="text-align: right;" id="expensesTotal">₱0.00</td>
+                <td colspan="2"></td>
+              </tr>
+            </tfoot>
+          </table>
+        </div>
+      </section>
 
       <!-- SETTINGS PAGE -->
       <section id="settings-page" class="page-content admin-only" style="display: none;">
@@ -554,6 +713,41 @@
         <div class="modal-actions">
           <button type="submit" class="btn btn-primary">Save</button>
           <button type="button" class="btn btn-secondary" onclick="closeModal('editCompanyModal')">Cancel</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Edit Expense Modal -->
+  <div id="editExpenseModal" class="modal">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h2>Edit Expense</h2>
+        <button class="modal-close" onclick="closeModal('editExpenseModal')">&times;</button>
+      </div>
+      <form id="editExpenseForm">
+        <input type="hidden" id="editExpId">
+        <div class="form-row">
+          <div class="form-group">
+            <label>Date</label>
+            <input type="date" id="editExpDate" required>
+          </div>
+          <div class="form-group">
+            <label>Amount (₱)</label>
+            <input type="number" id="editExpAmount" step="0.01" min="0.01" required>
+          </div>
+        </div>
+        <div class="form-group">
+          <label>Category</label>
+          <select id="editExpCategory" class="expense-category-select" required></select>
+        </div>
+        <div class="form-group">
+          <label>Notes (optional)</label>
+          <textarea id="editExpNotes"></textarea>
+        </div>
+        <div class="modal-actions">
+          <button type="submit" class="btn btn-primary">Save</button>
+          <button type="button" class="btn btn-secondary" onclick="closeModal('editExpenseModal')">Cancel</button>
         </div>
       </form>
     </div>

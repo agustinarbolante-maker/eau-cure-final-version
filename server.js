@@ -425,6 +425,118 @@ app.get('/api/deliveries/export/csv', authenticateToken, async (req, res) => {
   }
 });
 
+// Expenses API (all logged-in users can manage expenses)
+const DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
+
+function parseExpenseBody(body) {
+  const expenseDate = body.expense_date;
+  const category = body.category;
+  const amount = Number(body.amount);
+  const notes = typeof body.notes === 'string' ? body.notes.trim() : '';
+
+  if (!expenseDate || !DATE_PATTERN.test(expenseDate)) {
+    return { error: 'A valid date (YYYY-MM-DD) is required' };
+  }
+  if (!db.EXPENSE_CATEGORIES.includes(category)) {
+    return { error: 'Please choose a category from the list' };
+  }
+  if (!Number.isFinite(amount) || amount <= 0) {
+    return { error: 'Amount must be greater than 0' };
+  }
+  return { expenseDate, category, amount: Math.round(amount * 100) / 100, notes };
+}
+
+app.get('/api/expenses/categories', authenticateToken, (req, res) => {
+  res.json(db.EXPENSE_CATEGORIES);
+});
+
+app.get('/api/expenses', authenticateToken, async (req, res) => {
+  try {
+    const { startDate, endDate, category } = req.query;
+    const expenses = await db.getExpenses(startDate, endDate, category);
+    res.json(expenses);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.post('/api/expenses', authenticateToken, async (req, res) => {
+  try {
+    const parsed = parseExpenseBody(req.body);
+    if (parsed.error) {
+      return res.status(400).json({ error: parsed.error });
+    }
+    const id = await db.addExpense(parsed.expenseDate, parsed.category, parsed.amount, parsed.notes);
+    res.json({ id, message: 'Expense added successfully' });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.put('/api/expenses/:id', authenticateToken, async (req, res) => {
+  try {
+    const parsed = parseExpenseBody(req.body);
+    if (parsed.error) {
+      return res.status(400).json({ error: parsed.error });
+    }
+    const changes = await db.updateExpense(req.params.id, parsed.expenseDate, parsed.category, parsed.amount, parsed.notes);
+    if (!changes) {
+      return res.status(404).json({ error: 'Expense not found' });
+    }
+    res.json({ message: 'Expense updated successfully' });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.delete('/api/expenses/:id', authenticateToken, async (req, res) => {
+  try {
+    const changes = await db.deleteExpense(req.params.id);
+    if (!changes) {
+      return res.status(404).json({ error: 'Expense not found' });
+    }
+    res.json({ message: 'Expense deleted successfully' });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Reports API: sales (deliveries x unit price), expenses and income
+function parseReportRange(query) {
+  const { startDate, endDate } = query;
+  if (!DATE_PATTERN.test(startDate || '') || !DATE_PATTERN.test(endDate || '')) {
+    return { error: 'startDate and endDate (YYYY-MM-DD) are required' };
+  }
+  if (startDate > endDate) {
+    return { error: 'Start date must be on or before end date' };
+  }
+  return { startDate, endDate };
+}
+
+app.get('/api/reports/daily', authenticateToken, async (req, res) => {
+  try {
+    const range = parseReportRange(req.query);
+    if (range.error) {
+      return res.status(400).json({ error: range.error });
+    }
+    res.json(await db.getDailySalesAndExpenses(range.startDate, range.endDate));
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.get('/api/reports/summary', authenticateToken, async (req, res) => {
+  try {
+    const range = parseReportRange(req.query);
+    if (range.error) {
+      return res.status(400).json({ error: range.error });
+    }
+    res.json(await db.getSalesExpensesSummary(range.startDate, range.endDate));
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 app.get('/api/backups', authenticateToken, async (req, res) => {
   try {
     const backups = await db.listBackups();

@@ -1248,3 +1248,93 @@ tbody tr:last-child td {
     background-color: #3a3a3a;
   }
 }
+
+/* TREND METRIC SELECTOR (Dashboard chart) */
+.chart-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-bottom: 20px;
+}
+
+.chart-section .chart-header h2 {
+  margin-bottom: 0;
+}
+
+.trend-metric-tabs {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.trend-metric-tab {
+  padding: 8px 16px;
+  background: var(--bg-primary);
+  border: 2px solid var(--border-color);
+  border-radius: 6px;
+  cursor: pointer;
+  font-weight: 600;
+  color: var(--text-secondary);
+  transition: var(--transition);
+}
+
+.trend-metric-tab:hover {
+  border-color: var(--primary-color);
+  color: var(--primary-color);
+}
+
+.trend-metric-tab.active {
+  background: var(--primary-gradient);
+  color: white;
+  border-color: var(--primary-color);
+}
+
+/* REPORT / FILTER BARS (Expenses list, Sales & Expenses Summary) */
+.report-filter-form {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 15px;
+  align-items: flex-end;
+  background: var(--bg-secondary);
+  padding: 20px;
+  border-radius: 8px;
+  margin-bottom: 20px;
+}
+
+.report-filter-form .form-group {
+  margin-bottom: 0;
+  min-width: 160px;
+}
+
+/* SALES & EXPENSES SUMMARY */
+.summary-totals {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 20px;
+}
+
+.summary-sub {
+  margin-top: 6px;
+  font-size: 0.85em;
+  color: var(--text-secondary);
+}
+
+.stat-card .stat-value.negative {
+  background: none;
+  color: var(--danger-color);
+  -webkit-text-fill-color: var(--danger-color);
+}
+
+.expense-amount {
+  text-align: right;
+  white-space: nowrap;
+}
+
+.expense-notes {
+  max-width: 280px;
+  color: var(--text-secondary);
+  white-space: pre-wrap;
+  word-break: break-word;
+}

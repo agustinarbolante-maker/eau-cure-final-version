@@ -9,6 +9,25 @@ const BACKUP_RETENTION_DAYS = 30;
 
 let db;
 
+// Fixed list shown in the Expenses dropdown; the server rejects anything else
+const EXPENSE_CATEGORIES = [
+  'Electricity',
+  'Water',
+  'Fuel',
+  'Salaries and Wages',
+  'Oil, Lubricants, etc.',
+  'Vehicle Repair and Maintenance',
+  'Salt',
+  'Filters',
+  'Seals',
+  'Bottles',
+  'Dispensers',
+  'Other water station supplies',
+  'Office Supplies',
+  'Store Repair and Maintenance',
+  'Others'
+];
+
 const COMPANIES = [
   'HRD', 'HRD Canteen', 'I-Cube', 'Exterior', 'I-Cube 1st Floor Pantry',
   'HRD Logistics', 'DHR', 'DHR Logistics', 'Majestic', 'Majestic Energy Corp.',
@@ -53,7 +72,7 @@ function initDB() {
               if (err2) {
                 reject(err2);
               } else {
-                initBillingStatementsTable().then(() => createUserTable()).then(() => seedCompanies()).then(() => seedDefaultUsers()).then(() => resolve()).catch(reject);
+                initBillingStatementsTable().then(() => createUserTable()).then(() => initExpensesTable()).then(() => seedCompanies()).then(() => seedDefaultUsers()).then(() => resolve()).catch(reject);
               }
             });
           }
@@ -80,6 +99,27 @@ function initBillingStatementsTable() {
     `, (err) => {
       if (err) reject(err);
       else resolve();
+    });
+  });
+}
+
+function initExpensesTable() {
+  return new Promise((resolve, reject) => {
+    db.run(`
+      CREATE TABLE IF NOT EXISTS expenses (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        expense_date TEXT NOT NULL,
+        category TEXT NOT NULL,
+        amount REAL NOT NULL,
+        notes TEXT DEFAULT '',
+        created_at TEXT DEFAULT CURRENT_TIMESTAMP
+      )
+    `, (err) => {
+      if (err) return reject(err);
+      db.run('CREATE INDEX IF NOT EXISTS idx_expenses_date ON expenses (expense_date)', (err2) => {
+        if (err2) reject(err2);
+        else resolve();
+      });
     });
   });
 }
@@ -566,6 +606,158 @@ function restoreBackup(backupFilename) {
   });
 }
 
+// Expense functions
+function getExpenses(startDate, endDate, category) {
+  return new Promise((resolve, reject) => {
+    let query = 'SELECT * FROM expenses WHERE 1=1';
+    const params = [];
+
+    if (startDate) {
+      query += ' AND expense_date >= ?';
+      params.push(startDate);
+    }
+
+    if (endDate) {
+      query += ' AND expense_date <= ?';
+      params.push(endDate);
+    }
+
+    if (category) {
+      query += ' AND category = ?';
+      params.push(category);
+    }
+
+    query += ' ORDER BY expense_date DESC, id DESC';
+
+    db.all(query, params, (err, rows) => {
+      if (err) reject(err);
+      else resolve(rows || []);
+    });
+  });
+}
+
+function addExpense(expenseDate, category, amount, notes) {
+  return new Promise((resolve, reject) => {
+    db.run(
+      'INSERT INTO expenses (expense_date, category, amount, notes) VALUES (?, ?, ?, ?)',
+      [expenseDate, category, amount, notes || ''],
+      function(err) {
+        if (err) reject(err);
+        else resolve(this.lastID);
+      }
+    );
+  });
+}
+
+function updateExpense(id, expenseDate, category, amount, notes) {
+  return new Promise((resolve, reject) => {
+    db.run(
+      'UPDATE expenses SET expense_date = ?, category = ?, amount = ?, notes = ? WHERE id = ?',
+      [expenseDate, category, amount, notes || '', id],
+      function(err) {
+        if (err) reject(err);
+        else resolve(this.changes);
+      }
+    );
+  });
+}
+
+function deleteExpense(id) {
+  return new Promise((resolve, reject) => {
+    db.run('DELETE FROM expenses WHERE id = ?', [id], function(err) {
+      if (err) reject(err);
+      else resolve(this.changes);
+    });
+  });
+}
+
+// Sales = bottles delivered x the company's current unit price, the same rule
+// the Dashboard earnings use. A delivery's date is the YYYY-MM-DD part of its timestamp.
+function getDailySalesAndExpenses(startDate, endDate) {
+  const salesQuery = `
+    SELECT substr(d.timestamp, 1, 10) AS day,
+           SUM(d.bottles_delivered * COALESCE(c.unit_price, 0)) AS total
+    FROM deliveries d
+    LEFT JOIN companies c ON c.name = d.company
+    WHERE substr(d.timestamp, 1, 10) BETWEEN ? AND ?
+    GROUP BY day
+  `;
+  const expensesQuery = `
+    SELECT expense_date AS day, SUM(amount) AS total
+    FROM expenses
+    WHERE expense_date BETWEEN ? AND ?
+    GROUP BY day
+  `;
+
+  const run = (query) => new Promise((resolve, reject) => {
+    db.all(query, [startDate, endDate], (err, rows) => {
+      if (err) reject(err);
+      else resolve(rows || []);
+    });
+  });
+
+  return Promise.all([run(salesQuery), run(expensesQuery)]).then(([salesRows, expenseRows]) => {
+    const days = {};
+    salesRows.forEach(r => { days[r.day] = { sales: r.total || 0, expenses: 0 }; });
+    expenseRows.forEach(r => {
+      days[r.day] = days[r.day] || { sales: 0, expenses: 0 };
+      days[r.day].expenses = r.total || 0;
+    });
+    return days;
+  });
+}
+
+function getSalesExpensesSummary(startDate, endDate) {
+  const salesQuery = `
+    SELECT COUNT(*) AS delivery_count,
+           COALESCE(SUM(d.bottles_delivered), 0) AS bottles_delivered,
+           COALESCE(SUM(d.bottles_delivered * COALESCE(c.unit_price, 0)), 0) AS total_sales
+    FROM deliveries d
+    LEFT JOIN companies c ON c.name = d.company
+    WHERE substr(d.timestamp, 1, 10) BETWEEN ? AND ?
+  `;
+  const expensesQuery = `
+    SELECT category, COUNT(*) AS entries, SUM(amount) AS total
+    FROM expenses
+    WHERE expense_date BETWEEN ? AND ?
+    GROUP BY category
+  `;
+
+  return new Promise((resolve, reject) => {
+    db.get(salesQuery, [startDate, endDate], (err, sales) => {
+      if (err) return reject(err);
+      db.all(expensesQuery, [startDate, endDate], (err2, rows) => {
+        if (err2) return reject(err2);
+
+        // Always list every category (₱0 when unused) in the fixed order
+        const byCategory = {};
+        (rows || []).forEach(r => { byCategory[r.category] = r; });
+        const knownCategories = EXPENSE_CATEGORIES.map(category => ({
+          category,
+          entries: byCategory[category]?.entries || 0,
+          total: byCategory[category]?.total || 0
+        }));
+        const otherCategories = (rows || [])
+          .filter(r => !EXPENSE_CATEGORIES.includes(r.category))
+          .map(r => ({ category: r.category, entries: r.entries, total: r.total }));
+        const expensesByCategory = knownCategories.concat(otherCategories);
+
+        const totalExpenses = expensesByCategory.reduce((sum, c) => sum + c.total, 0);
+        resolve({
+          start_date: startDate,
+          end_date: endDate,
+          delivery_count: sales.delivery_count,
+          bottles_delivered: sales.bottles_delivered,
+          total_sales: sales.total_sales,
+          total_expenses: totalExpenses,
+          net_income: sales.total_sales - totalExpenses,
+          expenses_by_category: expensesByCategory
+        });
+      });
+    });
+  });
+}
+
 // User management functions
 function createUser(username, email, passwordHash, role) {
   return new Promise((resolve, reject) => {
@@ -672,6 +864,13 @@ module.exports = {
   getDeliveriesByFilters,
   getStats,
   getCompanyStats,
+  EXPENSE_CATEGORIES,
+  getExpenses,
+  addExpense,
+  updateExpense,
+  deleteExpense,
+  getDailySalesAndExpenses,
+  getSalesExpensesSummary,
   performBackup,
   listBackups,
   restoreBackup

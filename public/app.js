@@ -165,6 +165,8 @@ function switchPage(page) {
     } else if (page === 'billing') {
       loadBillings();
       loadCompanies();
+    } else if (page === 'expenses') {
+      loadExpenses();
     } else if (page === 'settings') {
       loadUsers();
     }
@@ -279,7 +281,7 @@ async function loadDashboardData() {
       }
       calculateStats(data);
       await calculateEarnings(data);
-      renderDeliveryChart(data);
+      renderTrendChart();
     } else {
       console.error('Dashboard data fetch failed:', response.status);
     }
@@ -395,49 +397,72 @@ async function calculateEarnings(deliveries) {
   }
 }
 
-function renderDeliveryChart(deliveries, filter = 'week') {
+// Trend chart state: date filter (overview tabs) + metric (Sales / Expenses / Income)
+let trendFilter = 'week';
+let trendMetric = 'sales';
+
+const TREND_METRICS = {
+  sales: { label: 'Sales', color: '#28a745', fill: 'rgba(40, 167, 69, 0.1)' },
+  expenses: { label: 'Expenses', color: '#dc3545', fill: 'rgba(220, 53, 69, 0.1)' },
+  income: { label: 'Income (Sales - Expenses)', color: '#667eea', fill: 'rgba(102, 126, 234, 0.1)' }
+};
+
+function formatPeso(amount) {
+  const value = Number(amount) || 0;
+  const formatted = Math.abs(value).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  return `${value < 0 ? '-' : ''}₱${formatted}`;
+}
+
+async function renderTrendChart() {
   const canvasContainer = document.getElementById('trendChart')?.parentElement;
   if (!canvasContainer) return;
 
-  // Destroy old chart and canvas
+  const dateRange = getDateRangeByFilter(trendFilter);
+  let daily = {};
+  try {
+    const params = new URLSearchParams({ startDate: dateRange[0], endDate: dateRange[dateRange.length - 1] });
+    const response = await fetch(`/api/reports/daily?${params}`, { headers: getHeaders(), cache: 'no-cache' });
+    if (response.ok) {
+      daily = await response.json();
+    }
+  } catch (error) {
+    console.error('Error loading trend data:', error);
+  }
+
+  const values = dateRange.map(date => {
+    const day = daily[date] || { sales: 0, expenses: 0 };
+    if (trendMetric === 'expenses') return day.expenses;
+    if (trendMetric === 'income') return day.sales - day.expenses;
+    return day.sales;
+  });
+
+  // Destroy old chart and recreate canvas to ensure clean state
   if (trendChart) {
     trendChart.destroy();
   }
-
-  // Remove and recreate canvas to ensure clean state
   const oldCanvas = document.getElementById('trendChart');
   if (oldCanvas) {
     oldCanvas.remove();
   }
-
   const newCanvas = document.createElement('canvas');
   newCanvas.id = 'trendChart';
   canvasContainer.appendChild(newCanvas);
 
-  const dateRange = getDateRangeByFilter(filter);
-  const data = {};
-
-  dateRange.forEach(date => { data[date] = 0; });
-
-  deliveries.forEach(del => {
-    const date = new Date(del.timestamp).toISOString().split('T')[0];
-    if (data[date] !== undefined) {
-      const delivered = del.bottles_delivered || del.delivered || 0;
-      const returned = del.bottles_returned || del.returned || 0;
-      data[date] += delivered - returned;
-    }
-  });
+  const metric = TREND_METRICS[trendMetric];
+  document.getElementById('trendMetricLabel').textContent = trendMetric === 'income' ? 'Income' : metric.label;
 
   trendChart = new Chart(newCanvas, {
     type: 'line',
     data: {
       labels: dateRange,
       datasets: [{
-        label: 'Net Bottles (Delivered - Returned)',
-        data: dateRange.map(date => data[date]),
-        borderColor: '#667eea',
-        backgroundColor: 'rgba(102, 126, 234, 0.1)',
+        label: metric.label,
+        data: values,
+        borderColor: metric.color,
+        backgroundColor: metric.fill,
         tension: 0.4,
+        // Smooth without overshooting: a ₱0 day must not curve above/below zero
+        cubicInterpolationMode: 'monotone',
         fill: true,
         pointRadius: 5,
         pointHoverRadius: 7
@@ -446,8 +471,17 @@ function renderDeliveryChart(deliveries, filter = 'week') {
     options: {
       responsive: true,
       maintainAspectRatio: false,
-      plugins: { legend: { display: true, labels: { usePointStyle: true } } },
-      scales: { y: { beginAtZero: true } }
+      plugins: {
+        legend: { display: true, labels: { usePointStyle: true } },
+        tooltip: { callbacks: { label: (ctx) => `${metric.label}: ${formatPeso(ctx.parsed.y)}` } }
+      },
+      scales: {
+        y: {
+          // Income can go negative, so only pin the axis at 0 for sales/expenses
+          beginAtZero: trendMetric !== 'income',
+          ticks: { callback: (value) => formatPeso(value) }
+        }
+      }
     }
   });
 }
@@ -462,35 +496,32 @@ function getLast7Days() {
   return days;
 }
 
+// YYYY-MM-DD in the browser's local timezone. (toISOString() converts to UTC,
+// which in the Philippines (UTC+8) shifts local midnight to the previous day.)
+function toLocalDateString(date) {
+  const y = date.getFullYear();
+  const m = String(date.getMonth() + 1).padStart(2, '0');
+  const d = String(date.getDate()).padStart(2, '0');
+  return `${y}-${m}-${d}`;
+}
+
+// Parse YYYY-MM-DD as a local date (new Date('YYYY-MM-DD') would parse it as UTC)
+function parseLocalDate(dateStr) {
+  const [y, m, d] = dateStr.split('-').map(Number);
+  return new Date(y, m - 1, d);
+}
+
 function getDateRangeByFilter(filter) {
+  const dayCounts = { today: 1, week: 7, month: 30, all: 90 };
+  const count = dayCounts[filter] || 7;
   const days = [];
   const today = new Date();
   today.setHours(0, 0, 0, 0);
 
-  if (filter === 'today') {
-    // Just today
-    days.push(today.toISOString().split('T')[0]);
-  } else if (filter === 'week') {
-    // Last 7 days
-    for (let i = 6; i >= 0; i--) {
-      const date = new Date(today);
-      date.setDate(date.getDate() - i);
-      days.push(date.toISOString().split('T')[0]);
-    }
-  } else if (filter === 'month') {
-    // Last 30 days
-    for (let i = 29; i >= 0; i--) {
-      const date = new Date(today);
-      date.setDate(date.getDate() - i);
-      days.push(date.toISOString().split('T')[0]);
-    }
-  } else if (filter === 'all') {
-    // Last 90 days (or all available data)
-    for (let i = 89; i >= 0; i--) {
-      const date = new Date(today);
-      date.setDate(date.getDate() - i);
-      days.push(date.toISOString().split('T')[0]);
-    }
+  for (let i = count - 1; i >= 0; i--) {
+    const date = new Date(today);
+    date.setDate(date.getDate() - i);
+    days.push(toLocalDateString(date));
   }
 
   return days;
@@ -2146,19 +2177,18 @@ function setupEventListeners() {
         chartTimeRangeEl.textContent = getChartTimeRangeLabel(filter);
       }
 
-      // Re-fetch and render dashboard data with the selected filter
-      try {
-        const response = await fetch('/api/deliveries', {
-          headers: getHeaders(),
-          cache: 'no-cache'
-        });
-        if (response.ok) {
-          const deliveries = await response.json();
-          renderDeliveryChart(deliveries, filter);
-        }
-      } catch (error) {
-        console.error('Error loading deliveries for chart:', error);
-      }
+      trendFilter = filter;
+      renderTrendChart();
+    });
+  });
+
+  // Trend metric selector (Sales / Expenses / Income)
+  document.querySelectorAll('.trend-metric-tab').forEach(tab => {
+    tab.addEventListener('click', () => {
+      document.querySelectorAll('.trend-metric-tab').forEach(t => t.classList.remove('active'));
+      tab.classList.add('active');
+      trendMetric = tab.dataset.metric;
+      renderTrendChart();
     });
   });
 
@@ -2202,6 +2232,413 @@ function showRecordsTab(tabName) {
     activeBtn.style.borderBottom = '3px solid #667eea';
   }
 }
+
+// ============================================
+// EXPENSES
+// ============================================
+
+let expenseCategories = [];
+let currentExpenses = {};
+
+function escapeHtml(text) {
+  return String(text ?? '').replace(/[&<>"']/g, ch => (
+    { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[ch]
+  ));
+}
+
+function formatDateLabel(dateStr) {
+  return parseLocalDate(dateStr).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+}
+
+async function loadExpenseCategories() {
+  if (expenseCategories.length === 0) {
+    try {
+      const response = await fetch('/api/expenses/categories', { headers: getHeaders() });
+      if (response.ok) {
+        expenseCategories = await response.json();
+      }
+    } catch (error) {
+      console.error('Error loading expense categories:', error);
+    }
+  }
+
+  document.querySelectorAll('.expense-category-select').forEach(select => {
+    const current = select.value;
+    const firstOption = select.dataset.includeAll === 'true'
+      ? '<option value="">All categories</option>'
+      : '<option value="" disabled selected>Select category</option>';
+    select.innerHTML = firstOption + expenseCategories
+      .map((cat, i) => `<option value="${escapeHtml(cat)}">${i + 1}. ${escapeHtml(cat)}</option>`)
+      .join('');
+    if (current) select.value = current;
+  });
+}
+
+async function loadExpenses() {
+  await loadExpenseCategories();
+
+  const dateInput = document.getElementById('expDate');
+  if (dateInput && !dateInput.value) {
+    dateInput.value = toLocalDateString(new Date());
+  }
+
+  const params = new URLSearchParams();
+  const start = document.getElementById('expFilterStart')?.value;
+  const end = document.getElementById('expFilterEnd')?.value;
+  const category = document.getElementById('expFilterCategory')?.value;
+  if (start) params.set('startDate', start);
+  if (end) params.set('endDate', end);
+  if (category) params.set('category', category);
+
+  try {
+    const response = await fetch(`/api/expenses?${params}`, { headers: getHeaders(), cache: 'no-cache' });
+    if (response.ok) {
+      renderExpenses(await response.json());
+    } else {
+      showNotification('Error loading expenses', 'error');
+    }
+  } catch (error) {
+    console.error('Error loading expenses:', error);
+    showNotification('Connection error - could not load expenses', 'error');
+  }
+}
+
+function renderExpenses(expenses) {
+  const tbody = document.getElementById('expensesBody');
+  currentExpenses = {};
+  expenses.forEach(exp => { currentExpenses[exp.id] = exp; });
+
+  const total = expenses.reduce((sum, exp) => sum + (Number(exp.amount) || 0), 0);
+  document.getElementById('expensesTotal').textContent = formatPeso(total);
+  document.getElementById('expensesCount').textContent = expenses.length;
+
+  if (expenses.length === 0) {
+    tbody.innerHTML = '<tr class="empty-state"><td colspan="5">No expenses found</td></tr>';
+    return;
+  }
+
+  tbody.innerHTML = expenses.map(exp => `
+    <tr>
+      <td>${formatDateLabel(exp.expense_date)}</td>
+      <td>${escapeHtml(exp.category)}</td>
+      <td class="expense-amount">${formatPeso(exp.amount)}</td>
+      <td class="expense-notes">${escapeHtml(exp.notes) || '-'}</td>
+      <td class="actions">
+        <button class="btn btn-secondary btn-sm" onclick="editExpense(${exp.id})">Edit</button>
+        <button class="btn btn-danger btn-sm" onclick="deleteExpense(${exp.id})">Delete</button>
+      </td>
+    </tr>
+  `).join('');
+}
+
+async function getErrorMessage(response, fallback) {
+  try {
+    const data = await response.json();
+    return data.error || data.message || fallback;
+  } catch (e) {
+    return fallback;
+  }
+}
+
+document.getElementById('expenseForm')?.addEventListener('submit', async (e) => {
+  e.preventDefault();
+
+  const data = {
+    expense_date: document.getElementById('expDate').value,
+    category: document.getElementById('expCategory').value,
+    amount: parseFloat(document.getElementById('expAmount').value),
+    notes: document.getElementById('expNotes').value
+  };
+
+  try {
+    const response = await fetch('/api/expenses', {
+      method: 'POST',
+      headers: getHeaders(),
+      body: JSON.stringify(data)
+    });
+
+    if (response.ok) {
+      showNotification('✓ Expense added successfully!', 'success');
+      // Keep the date so several expenses for the same day are quick to enter
+      document.getElementById('expAmount').value = '';
+      document.getElementById('expNotes').value = '';
+      document.getElementById('expCategory').value = '';
+      loadExpenses();
+    } else {
+      showNotification(await getErrorMessage(response, 'Error adding expense'), 'error');
+    }
+  } catch (error) {
+    console.error('Error adding expense:', error);
+    showNotification('Connection error - could not add expense', 'error');
+  }
+});
+
+function editExpense(id) {
+  const exp = currentExpenses[id];
+  if (!exp) return;
+
+  document.getElementById('editExpId').value = id;
+  document.getElementById('editExpDate').value = exp.expense_date;
+  document.getElementById('editExpAmount').value = exp.amount;
+  document.getElementById('editExpCategory').value = exp.category;
+  document.getElementById('editExpNotes').value = exp.notes || '';
+  openModal('editExpenseModal');
+}
+
+document.getElementById('editExpenseForm')?.addEventListener('submit', async (e) => {
+  e.preventDefault();
+
+  const id = document.getElementById('editExpId').value;
+  const data = {
+    expense_date: document.getElementById('editExpDate').value,
+    category: document.getElementById('editExpCategory').value,
+    amount: parseFloat(document.getElementById('editExpAmount').value),
+    notes: document.getElementById('editExpNotes').value
+  };
+
+  try {
+    const response = await fetch(`/api/expenses/${id}`, {
+      method: 'PUT',
+      headers: getHeaders(),
+      body: JSON.stringify(data)
+    });
+
+    if (response.ok) {
+      closeModal('editExpenseModal');
+      showNotification('✓ Expense updated', 'success');
+      loadExpenses();
+    } else {
+      showNotification(await getErrorMessage(response, 'Error updating expense'), 'error');
+    }
+  } catch (error) {
+    console.error('Error updating expense:', error);
+    showNotification('Connection error - could not update expense', 'error');
+  }
+});
+
+async function deleteExpense(id) {
+  if (!confirm('Delete this expense?')) return;
+
+  try {
+    const response = await fetch(`/api/expenses/${id}`, { method: 'DELETE', headers: getHeaders() });
+    if (response.ok) {
+      showNotification('✓ Expense deleted', 'success');
+      loadExpenses();
+    } else {
+      showNotification(await getErrorMessage(response, 'Error deleting expense'), 'error');
+    }
+  } catch (error) {
+    console.error('Error deleting expense:', error);
+  }
+}
+
+document.getElementById('expenseFilterForm')?.addEventListener('submit', (e) => {
+  e.preventDefault();
+  loadExpenses();
+});
+
+document.getElementById('expFilterClear')?.addEventListener('click', () => {
+  document.getElementById('expFilterStart').value = '';
+  document.getElementById('expFilterEnd').value = '';
+  document.getElementById('expFilterCategory').value = '';
+  loadExpenses();
+});
+
+// ============================================
+// SALES & EXPENSES SUMMARY REPORT
+// ============================================
+
+let currentSummary = null;
+
+function updateSummaryPeriodInputs() {
+  const period = document.getElementById('sumPeriod').value;
+  const isCustom = period === 'custom';
+
+  document.getElementById('sumDateGroup').style.display = isCustom ? 'none' : '';
+  document.getElementById('sumStartGroup').style.display = isCustom ? '' : 'none';
+  document.getElementById('sumEndGroup').style.display = isCustom ? '' : 'none';
+  document.getElementById('sumDate').required = !isCustom;
+  document.getElementById('sumStartDate').required = isCustom;
+  document.getElementById('sumEndDate').required = isCustom;
+  document.getElementById('sumDateLabel').textContent = period === 'weekly' ? 'Any date in the week' : 'Date';
+}
+
+// Weeks run Monday to Sunday
+function getWeekRange(dateStr) {
+  const date = parseLocalDate(dateStr);
+  const daysSinceMonday = (date.getDay() + 6) % 7;
+  const monday = new Date(date);
+  monday.setDate(date.getDate() - daysSinceMonday);
+  const sunday = new Date(monday);
+  sunday.setDate(monday.getDate() + 6);
+  return { start: toLocalDateString(monday), end: toLocalDateString(sunday) };
+}
+
+function getSummaryRange() {
+  const period = document.getElementById('sumPeriod').value;
+
+  if (period === 'daily') {
+    const day = document.getElementById('sumDate').value;
+    return { start: day, end: day, label: `Daily Summary — ${formatDateLabel(day)}` };
+  }
+
+  if (period === 'weekly') {
+    const { start, end } = getWeekRange(document.getElementById('sumDate').value);
+    return { start, end, label: `Weekly Summary — ${formatDateLabel(start)} to ${formatDateLabel(end)}` };
+  }
+
+  const start = document.getElementById('sumStartDate').value;
+  const end = document.getElementById('sumEndDate').value;
+  if (start > end) {
+    return { error: 'Start date must be on or before the end date' };
+  }
+  return { start, end, label: `Summary — ${formatDateLabel(start)} to ${formatDateLabel(end)}` };
+}
+
+document.getElementById('sumPeriod')?.addEventListener('change', updateSummaryPeriodInputs);
+
+document.getElementById('summaryReportForm')?.addEventListener('submit', async (e) => {
+  e.preventDefault();
+
+  const range = getSummaryRange();
+  if (range.error) {
+    showNotification(range.error, 'error');
+    return;
+  }
+
+  try {
+    const params = new URLSearchParams({ startDate: range.start, endDate: range.end });
+    const response = await fetch(`/api/reports/summary?${params}`, { headers: getHeaders(), cache: 'no-cache' });
+    if (!response.ok) {
+      showNotification(await getErrorMessage(response, 'Error generating summary'), 'error');
+      return;
+    }
+    currentSummary = { ...(await response.json()), label: range.label };
+    renderSummaryReport(currentSummary);
+  } catch (error) {
+    console.error('Error generating summary:', error);
+    showNotification('Connection error - could not generate summary', 'error');
+  }
+});
+
+function renderSummaryReport(summary) {
+  document.getElementById('summaryEmpty').style.display = 'none';
+  document.getElementById('summaryContainer').style.display = 'block';
+  document.getElementById('summaryPeriodLabel').textContent = summary.label;
+
+  document.getElementById('sumTotalSales').textContent = formatPeso(summary.total_sales);
+  document.getElementById('sumSalesDetail').textContent =
+    `${summary.delivery_count} deliveries · ${summary.bottles_delivered} bottles`;
+  document.getElementById('sumTotalExpenses').textContent = formatPeso(summary.total_expenses);
+
+  const netEl = document.getElementById('sumNetIncome');
+  netEl.textContent = formatPeso(summary.net_income);
+  netEl.classList.toggle('negative', summary.net_income < 0);
+
+  document.getElementById('summaryCategoryBody').innerHTML = summary.expenses_by_category.map(cat => `
+    <tr${cat.total ? '' : ' style="color: var(--text-secondary);"'}>
+      <td>${escapeHtml(cat.category)}</td>
+      <td style="text-align: center;">${cat.entries}</td>
+      <td class="expense-amount">${formatPeso(cat.total)}</td>
+    </tr>
+  `).join('');
+  document.getElementById('summaryCategoryTotal').textContent = formatPeso(summary.total_expenses);
+}
+
+document.getElementById('summaryPrintBtn')?.addEventListener('click', () => {
+  if (!currentSummary) return;
+  printSummaryReport(currentSummary);
+});
+
+function printSummaryReport(summary) {
+  const categoryRows = summary.expenses_by_category.map(cat => `
+    <tr>
+      <td>${escapeHtml(cat.category)}</td>
+      <td class="num">${cat.entries || ''}</td>
+      <td class="num">${formatPeso(cat.total)}</td>
+    </tr>
+  `).join('');
+
+  const html = `
+    <!DOCTYPE html>
+    <html>
+      <head>
+        <meta charset="UTF-8">
+        <title>${escapeHtml(summary.label)}</title>
+        <style>
+          * { box-sizing: border-box; }
+          body { font-family: Arial, sans-serif; color: #000; margin: 30px; font-size: 13px; }
+          h1 { font-size: 20px; margin: 0; }
+          .subtitle { margin: 4px 0 0; color: #444; }
+          .period { margin: 16px 0 20px; font-size: 15px; font-weight: bold; }
+          table { width: 100%; border-collapse: collapse; margin-bottom: 20px; }
+          th, td { border: 1px solid #999; padding: 6px 8px; text-align: left; }
+          th { background: #eee; }
+          .num { text-align: right; white-space: nowrap; }
+          .totals td { font-size: 14px; }
+          .totals .label { width: 70%; font-weight: bold; }
+          .net td { font-weight: bold; font-size: 15px; border-top: 2px solid #000; }
+          tfoot td { font-weight: bold; background: #f5f5f5; }
+          .meta { color: #444; font-size: 11px; }
+          .signatures { display: flex; gap: 60px; margin-top: 50px; }
+          .signatures div { flex: 1; border-top: 1px solid #000; padding-top: 4px; text-align: center; font-size: 11px; }
+          @media print { body { margin: 15mm; } @page { size: A4; margin: 0; } }
+        </style>
+      </head>
+      <body>
+        <h1>EAU CURE WATER STATION</h1>
+        <p class="subtitle">Sales and Expenses Summary</p>
+        <p class="period">${escapeHtml(summary.label)}</p>
+
+        <table class="totals">
+          <tr><td class="label">Total Sales</td><td class="num">${formatPeso(summary.total_sales)}</td></tr>
+          <tr><td class="label">Total Expenses</td><td class="num">${formatPeso(summary.total_expenses)}</td></tr>
+          <tr class="net"><td class="label">NET INCOME (Sales − Expenses)</td><td class="num">${formatPeso(summary.net_income)}</td></tr>
+        </table>
+        <p class="meta">Sales: ${summary.delivery_count} deliveries, ${summary.bottles_delivered} bottles delivered.</p>
+
+        <h2 style="font-size: 15px; margin-top: 25px;">Expenses by Category</h2>
+        <table>
+          <thead>
+            <tr><th>Category</th><th class="num">Entries</th><th class="num">Amount</th></tr>
+          </thead>
+          <tbody>${categoryRows}</tbody>
+          <tfoot>
+            <tr><td>TOTAL EXPENSES</td><td></td><td class="num">${formatPeso(summary.total_expenses)}</td></tr>
+          </tfoot>
+        </table>
+
+        <p class="meta">Generated ${new Date().toLocaleString('en-US')}</p>
+
+        <div class="signatures">
+          <div>Prepared by</div>
+          <div>Checked / Approved by</div>
+        </div>
+      </body>
+    </html>
+  `;
+
+  const printWindow = window.open('', '', 'height=800,width=900');
+  if (!printWindow) {
+    showNotification('Allow pop-ups for this site to print the report', 'error');
+    return;
+  }
+  printWindow.document.write(html);
+  printWindow.document.close();
+  printWindow.focus();
+  printWindow.print();
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+  const today = toLocalDateString(new Date());
+  ['sumDate', 'sumStartDate', 'sumEndDate'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el && !el.value) el.value = today;
+  });
+  if (document.getElementById('sumPeriod')) {
+    updateSummaryPeriodInputs();
+  }
+});
 
 // ============================================
 // MULTI-SELECT COMPONENT
