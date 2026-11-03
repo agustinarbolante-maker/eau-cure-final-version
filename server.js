@@ -1,3 +1,6 @@
+// Load .env first so JWT_SECRET etc. are set before any module reads them
+require('dotenv').config({ path: require('path').join(__dirname, '.env') });
+
 const express = require('express');
 const cors = require('cors');
 const bodyParser = require('body-parser');

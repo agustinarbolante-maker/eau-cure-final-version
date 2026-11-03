@@ -3,6 +3,10 @@ const jwt = require('jsonwebtoken');
 const JWT_SECRET = process.env.JWT_SECRET || 'dev-secret-key-change-in-production';
 const JWT_EXPIRATION = process.env.JWT_EXPIRATION || '7d';
 
+if (!process.env.JWT_SECRET) {
+  console.warn('WARNING: JWT_SECRET is not set - using the insecure default. Anyone can forge logins. Set it in .env');
+}
+
 /**
  * Generate a JWT token for a user
  * @param {number} userId - User ID
