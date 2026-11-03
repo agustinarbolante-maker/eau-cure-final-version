@@ -25,8 +25,9 @@ if (!fs.existsSync(uploadsDir)) {
 const upload = multer({
   storage: multer.diskStorage({
     destination: uploadsDir,
+    // Never use the client-supplied name: it could contain "../" and write anywhere
     filename: (req, file, cb) => {
-      cb(null, file.originalname);
+      cb(null, `upload_${Date.now()}.db`);
     }
   }),
   fileFilter: (req, file, cb) => {
@@ -54,7 +55,7 @@ if (fs.existsSync(reactBuildPath)) {
 
 // Import middleware
 const { authenticateToken } = require('./middleware/auth');
-const { requireAdminOrHigher } = require('./middleware/permissions');
+const { requireAdminOrHigher, requireOwnerOrSoftwareEngineer } = require('./middleware/permissions');
 
 io.on('connection', (socket) => {
   console.log(`User connected: ${socket.id}`);
@@ -439,7 +440,7 @@ app.post('/api/backups', authenticateToken, async (req, res) => {
   }
 });
 
-app.post('/api/backups/restore/:filename', authenticateToken, async (req, res) => {
+app.post('/api/backups/restore/:filename', authenticateToken, requireOwnerOrSoftwareEngineer, async (req, res) => {
   try {
     const { filename } = req.params;
     const result = await db.restoreBackup(filename);
@@ -449,14 +450,15 @@ app.post('/api/backups/restore/:filename', authenticateToken, async (req, res) =
   }
 });
 
-app.get('/api/backups/download/:filename', authenticateToken, (req, res) => {
+app.get('/api/backups/download/:filename', authenticateToken, requireOwnerOrSoftwareEngineer, (req, res) => {
   try {
     const { filename } = req.params;
-    const backupPath = path.join(__dirname, 'data', 'backups', filename);
 
-    if (!filename.startsWith('backup_') || !filename.endsWith('.db')) {
+    if (!db.isValidBackupFilename(filename)) {
       return res.status(400).json({ error: 'Invalid filename' });
     }
+
+    const backupPath = path.join(__dirname, 'data', 'backups', filename);
 
     if (!require('fs').existsSync(backupPath)) {
       return res.status(404).json({ error: 'Backup not found' });
@@ -468,14 +470,15 @@ app.get('/api/backups/download/:filename', authenticateToken, (req, res) => {
   }
 });
 
-app.delete('/api/backups/:filename', (req, res) => {
+app.delete('/api/backups/:filename', authenticateToken, requireOwnerOrSoftwareEngineer, (req, res) => {
   try {
     const { filename } = req.params;
-    const backupPath = path.join(__dirname, 'data', 'backups', filename);
 
-    if (!filename.startsWith('backup_') || !filename.endsWith('.db')) {
+    if (!db.isValidBackupFilename(filename)) {
       return res.status(400).json({ error: 'Invalid filename' });
     }
+
+    const backupPath = path.join(__dirname, 'data', 'backups', filename);
 
     const fs = require('fs');
     if (!fs.existsSync(backupPath)) {
@@ -489,7 +492,7 @@ app.delete('/api/backups/:filename', (req, res) => {
   }
 });
 
-app.post('/api/backups/upload', upload.single('file'), (req, res) => {
+app.post('/api/backups/upload', authenticateToken, requireOwnerOrSoftwareEngineer, upload.single('file'), (req, res) => {
   try {
     if (!req.file) {
       return res.status(400).json({ error: 'No file uploaded' });

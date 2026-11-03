@@ -538,17 +538,23 @@ function listBackups() {
   });
 }
 
+// Only plain names like backup_2026-11-03T02-30-53.db — no slashes or "..",
+// so a filename can never point outside BACKUP_DIR (e.g. at the live DB).
+function isValidBackupFilename(filename) {
+  return typeof filename === 'string' && /^backup_[A-Za-z0-9_-]+\.db$/.test(filename);
+}
+
 function restoreBackup(backupFilename) {
   return new Promise((resolve, reject) => {
     try {
+      if (!isValidBackupFilename(backupFilename)) {
+        throw new Error('Invalid backup filename');
+      }
+
       const backupPath = path.join(BACKUP_DIR, backupFilename);
 
       if (!fs.existsSync(backupPath)) {
         throw new Error('Backup file not found');
-      }
-
-      if (!backupFilename.startsWith('backup_') || !backupFilename.endsWith('.db')) {
-        throw new Error('Invalid backup filename');
       }
 
       fs.copyFileSync(backupPath, DB_PATH);
@@ -640,6 +646,7 @@ function updateUserRole(userId, newRole) {
 
 module.exports = {
   initDB,
+  isValidBackupFilename,
   createUserTable,
   createUser,
   getUserByUsername,
