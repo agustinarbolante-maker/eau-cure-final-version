@@ -334,17 +334,13 @@ async function calculateEarnings(deliveries) {
       companyMap[c.name] = { unitPrice: parseFloat(c.unit_price) || 0 };
     });
 
-    // Helper function to calculate earnings for a date range
+    // Helper function to calculate earnings for a date range (YYYY-MM-DD, inclusive).
+    // A delivery's date is the YYYY-MM-DD part of its timestamp, same as the server reports.
     function earningsForRange(start, end) {
-      const startUTC = new Date(start);
-      startUTC.setHours(0, 0, 0, 0);
-      const endUTC = new Date(end);
-      endUTC.setHours(23, 59, 59, 999);
-
       let total = 0;
       deliveries.forEach(del => {
-        const delDate = new Date(del.timestamp);
-        if (delDate >= startUTC && delDate <= endUTC) {
+        const delDate = (del.timestamp || '').slice(0, 10);
+        if (delDate >= start && delDate <= end) {
           const qty = del.bottles_delivered || del.delivered || 0;
           const unitPrice = companyMap[del.company]?.unitPrice || 0;
           total += qty * unitPrice;
@@ -353,34 +349,28 @@ async function calculateEarnings(deliveries) {
       return total;
     }
 
+    // Use local dates: toISOString() is UTC and shifts days for UTC+8
     const today = new Date();
-    const todayStr = today.toISOString().split('T')[0];
+    const todayStr = toLocalDateString(today);
 
     // Today
     const earningsToday = earningsForRange(todayStr, todayStr);
     document.getElementById('earningsToday').textContent = `₱${earningsToday.toFixed(2)}`;
 
-    // This Week (Sunday to today)
-    const weekStart = new Date(today);
-    const dayOfWeek = today.getDay();
-    weekStart.setDate(today.getDate() - dayOfWeek);
-    const weekStartStr = weekStart.toISOString().split('T')[0];
-    const earningsWeek = earningsForRange(weekStartStr, todayStr);
+    // This Week (Monday to today) - weeks run Monday to Sunday
+    const thisWeek = getWeekRange(todayStr);
+    const earningsWeek = earningsForRange(thisWeek.start, todayStr);
     document.getElementById('earningsWeek').textContent = `₱${earningsWeek.toFixed(2)}`;
 
-    // Last Week
-    const lastWeekEnd = new Date(weekStart);
-    lastWeekEnd.setDate(weekStart.getDate() - 1);
-    const lastWeekStart = new Date(lastWeekEnd);
-    lastWeekStart.setDate(lastWeekEnd.getDate() - 6);
-    const lastWeekStartStr = lastWeekStart.toISOString().split('T')[0];
-    const lastWeekEndStr = lastWeekEnd.toISOString().split('T')[0];
-    const earningsLastWeek = earningsForRange(lastWeekStartStr, lastWeekEndStr);
+    // Last Week (previous Monday to Sunday)
+    const lastWeekDay = parseLocalDate(thisWeek.start);
+    lastWeekDay.setDate(lastWeekDay.getDate() - 1);
+    const lastWeek = getWeekRange(toLocalDateString(lastWeekDay));
+    const earningsLastWeek = earningsForRange(lastWeek.start, lastWeek.end);
     document.getElementById('earningsLastWeek').textContent = `₱${earningsLastWeek.toFixed(2)}`;
 
     // This Month
-    const monthStart = new Date(today.getFullYear(), today.getMonth(), 1);
-    const monthStartStr = monthStart.toISOString().split('T')[0];
+    const monthStartStr = toLocalDateString(new Date(today.getFullYear(), today.getMonth(), 1));
     const earningsMonth = earningsForRange(monthStartStr, todayStr);
     document.getElementById('earningsMonth').textContent = `₱${earningsMonth.toFixed(2)}`;
 
